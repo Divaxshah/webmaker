@@ -2,6 +2,30 @@ export type MessageRole = "user" | "assistant";
 
 export type MessageStatus = "thinking" | "writing" | "done" | "error";
 
+export type AgentActivityKind =
+  | "plan"
+  | "inspect"
+  | "search"
+  | "read"
+  | "edit"
+  | "create"
+  | "delete"
+  | "rename"
+  | "verify"
+  | "complete";
+
+export type AgentActivityStatus = "pending" | "active" | "completed" | "error";
+
+export interface AgentActivity {
+  id: string;
+  kind: AgentActivityKind;
+  status: AgentActivityStatus;
+  title: string;
+  detail: string;
+  tool?: string;
+  targets?: string[];
+}
+
 export interface Message {
   id: string;
   role: MessageRole;
@@ -10,6 +34,7 @@ export interface Message {
   tokenCount?: number;
   latencyMs?: number;
   codeSnapshot?: string;
+  activities?: AgentActivity[];
   createdAt: string;
 }
 
@@ -38,8 +63,13 @@ export interface Session {
 }
 
 export interface RuntimeErrorState {
+  source: "runtime" | "compile" | "unknown";
   message: string;
   code: string;
+  filePath?: string;
+  line?: number;
+  column?: number;
+  prompt: string;
   timestamp: number;
 }
 

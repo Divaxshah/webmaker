@@ -1,15 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useEffectEvent } from "react";
 import { useActiveCode, useSandpack, useSandpackClient } from "@codesandbox/sandpack-react";
-
-interface RuntimeErrorPayload {
-  message: string;
-  code: string;
-}
+import { normalizeRuntimeError } from "@/lib/runtime-error";
+import type { RuntimeErrorState } from "@/lib/types";
 
 interface UseSandpackErrorsProps {
-  onRuntimeError: (payload: RuntimeErrorPayload) => void;
+  onRuntimeError: (payload: RuntimeErrorState) => void;
 }
 
 const getMessageText = (value: unknown): string => {
@@ -37,35 +34,34 @@ export const useSandpackErrors = ({
   const { code } = useActiveCode();
   const { sandpack } = useSandpack();
   const { listen } = useSandpackClient();
+  const reportRuntimeError = useEffectEvent((message: string, currentCode: string) => {
+    onRuntimeError(
+      normalizeRuntimeError({
+        message,
+        code: currentCode,
+      })
+    );
+  });
 
   useEffect(() => {
     const unsubscribe = listen((message) => {
       if (message.type === "action" && message.action === "show-error") {
-        onRuntimeError({
-          message: getMessageText(message.message),
-          code,
-        });
+        reportRuntimeError(getMessageText(message.message), code);
       }
 
       if (message.type === "action" && message.action === "notification") {
-        onRuntimeError({
-          message: getMessageText(message.title),
-          code,
-        });
+        reportRuntimeError(getMessageText(message.title), code);
       }
     });
 
     return () => {
       unsubscribe();
     };
-  }, [code, listen, onRuntimeError]);
+  }, [code, listen]);
 
   useEffect(() => {
     if (sandpack.error?.message) {
-      onRuntimeError({
-        message: sandpack.error.message,
-        code,
-      });
+      reportRuntimeError(sandpack.error.message, code);
     }
-  }, [code, onRuntimeError, sandpack.error?.message]);
+  }, [code, sandpack.error?.message]);
 };

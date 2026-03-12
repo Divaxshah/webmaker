@@ -23,24 +23,25 @@ export function ConsoleView() {
   }, [logs]);
 
   return (
-    <div className="h-full overflow-y-auto rounded-xl border border-[var(--wm-border)] bg-[var(--wm-panel)] p-3 font-mono text-xs">
+    <div className="h-full overflow-y-auto bg-[#111111] p-6 font-mono text-[12px] scrollbar-thin">
       {rows.length === 0 ? (
-        <p className="text-[var(--wm-muted)]">Console output appears here.</p>
+        <p className="text-white/20 italic">Console output appears here...</p>
       ) : (
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           {rows.map((row) => (
-            <p
+            <div
               key={row.id}
-              className={`whitespace-pre-wrap break-words ${
+              className={`whitespace-pre-wrap break-words p-2 rounded-lg ${
                 row.level === "error"
-                  ? "text-[#d59a8c]"
+                  ? "bg-destructive/10 text-destructive border border-destructive/20"
                   : row.level === "warn"
-                    ? "text-[#dbc293]"
-                    : "text-[#d8cebf]"
+                    ? "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                    : "text-white/60 border border-white/5"
               }`}
             >
-              [{row.level}] {row.text}
-            </p>
+              <span className="opacity-40 mr-2">[{row.level}]</span>
+              {row.text}
+            </div>
           ))}
         </div>
       )}

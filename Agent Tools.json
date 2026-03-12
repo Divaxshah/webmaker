@@ -1,82 +1,150 @@
 {
-  "webmaker-search-files": {
-    "description": "Search the project for relevant code before making changes.",
+  "agent.plan": {
+    "description": "Break the request into concrete frontend tasks before editing or creating files.",
     "parameters": {
       "type": "object",
-      "required": ["query", "include_pattern"],
       "properties": {
-        "query": { "type": "string" },
-        "include_pattern": { "type": "string" },
-        "exclude_pattern": { "type": "string" },
-        "case_sensitive": { "type": "boolean" }
-      }
+        "goal": {
+          "type": "string",
+          "example": "Expose granular tool activity in the studio timeline"
+        }
+      },
+      "required": ["goal"]
     }
   },
-  "webmaker-view-file": {
-    "description": "Read a project file before editing it.",
+  "agent.inspect": {
+    "description": "Inspect project structure, routes, components, or styling areas before making changes.",
     "parameters": {
       "type": "object",
-      "required": ["file_path"],
       "properties": {
-        "file_path": { "type": "string" },
-        "lines": { "type": "string" }
-      }
+        "targets": {
+          "type": "array",
+          "items": { "type": "string" },
+          "example": ["/src/App.tsx", "/src/styles.css"]
+        }
+      },
+      "required": ["targets"]
     }
   },
-  "webmaker-line-replace": {
-    "description": "Make focused edits to existing files.",
+  "agent.search": {
+    "description": "Search the frontend codebase for components, hooks, status handling, or file references.",
     "parameters": {
       "type": "object",
-      "required": ["file_path", "search", "first_replaced_line", "last_replaced_line", "replace"],
       "properties": {
-        "file_path": { "type": "string" },
-        "search": { "type": "string" },
-        "first_replaced_line": { "type": "number" },
-        "last_replaced_line": { "type": "number" },
-        "replace": { "type": "string" }
-      }
+        "query": {
+          "type": "string",
+          "example": "ActivityGroup"
+        }
+      },
+      "required": ["query"]
     }
   },
-  "webmaker-write-file": {
-    "description": "Create a new file or fully rewrite a file when necessary.",
+  "agent.read": {
+    "description": "Read one or more frontend files closely before editing.",
     "parameters": {
       "type": "object",
-      "required": ["file_path", "content"],
       "properties": {
-        "file_path": { "type": "string" },
-        "content": { "type": "string" }
-      }
+        "targets": {
+          "type": "array",
+          "items": { "type": "string" },
+          "example": ["/src/components/chat/ActivityTimeline.tsx"]
+        }
+      },
+      "required": ["targets"]
     }
   },
-  "webmaker-fetch-website": {
-    "description": "Fetch website references when a design or copy reference is needed.",
+  "agent.edit": {
+    "description": "Modify existing files with targeted frontend changes.",
     "parameters": {
       "type": "object",
-      "required": ["url"],
       "properties": {
-        "url": { "type": "string" },
-        "formats": { "type": "string" }
-      }
+        "targets": {
+          "type": "array",
+          "items": { "type": "string" },
+          "example": ["/src/components/chat/ActivityGroup.tsx"]
+        },
+        "intent": {
+          "type": "string",
+          "example": "Render each streamed agent action as its own timeline item"
+        }
+      },
+      "required": ["targets", "intent"]
     }
   },
-  "webmaker-read-console-logs": {
-    "description": "Inspect preview/runtime logs while debugging the frontend.",
+  "agent.create": {
+    "description": "Create new frontend files such as components, pages, stylesheets, or hooks.",
     "parameters": {
       "type": "object",
-      "required": ["search"],
       "properties": {
-        "search": { "type": "string" }
-      }
+        "targets": {
+          "type": "array",
+          "items": { "type": "string" },
+          "example": ["/src/components/chat/AgentTimeline.tsx"]
+        },
+        "intent": {
+          "type": "string",
+          "example": "Add a dedicated timeline component for streamed tool events"
+        }
+      },
+      "required": ["targets", "intent"]
     }
   },
-  "webmaker-read-network-requests": {
-    "description": "Inspect browser network requests while debugging frontend behavior.",
+  "agent.rename": {
+    "description": "Rename a file when the structure should change without duplicating code.",
     "parameters": {
       "type": "object",
-      "required": ["search"],
       "properties": {
-        "search": { "type": "string" }
-      }
+        "from": {
+          "type": "string",
+          "example": "/src/components/OldPanel.tsx"
+        },
+        "to": {
+          "type": "string",
+          "example": "/src/components/AgentPanel.tsx"
+        }
+      },
+      "required": ["from", "to"]
+    }
+  },
+  "agent.delete": {
+    "description": "Remove obsolete frontend files that are no longer used.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "targets": {
+          "type": "array",
+          "items": { "type": "string" },
+          "example": ["/src/components/legacy/OldStatus.tsx"]
+        }
+      },
+      "required": ["targets"]
+    }
+  },
+  "agent.verify": {
+    "description": "Verify imports, routes, component wiring, and final frontend consistency before completing the response.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "checks": {
+          "type": "array",
+          "items": { "type": "string" },
+          "example": ["imports resolve", "activity timeline renders in order", "project JSON is complete"]
+        }
+      },
+      "required": ["checks"]
+    }
+  },
+  "agent.complete": {
+    "description": "Mark the frontend task complete after planning, editing, and verification are finished.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "summary": {
+          "type": "string",
+          "example": "Granular agent activity stream and UI timeline are ready"
+        }
+      },
+      "required": ["summary"]
     }
   }
 }

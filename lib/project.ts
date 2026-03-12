@@ -1,3 +1,4 @@
+import { extractProjectEnvelope } from "@/lib/agent";
 import type { GeneratedProject, ProjectFileMap, Session } from "@/lib/types";
 
 const DEFAULT_DEPENDENCIES: Record<string, string> = {
@@ -326,7 +327,7 @@ export function TermsPage() {
 }`,
   },
   "/src/pages/WorkspacePage.tsx": {
-    code: `import { FolderTree, Sparkles, Wand2 } from "lucide-react";
+    code: `import { FolderTree, Wand2 } from "lucide-react";
 
 const files = ["src/pages/LandingPage.tsx", "src/pages/AppPage.tsx", "src/components/Nav.tsx", "src/styles.css"];
 
@@ -336,7 +337,7 @@ export function WorkspacePage() {
       <div className="grid gap-5 lg:grid-cols-[0.72fr_1.28fr]">
         <aside className="rounded-[2rem] border border-[var(--line-strong)] bg-[var(--panel)] p-5">
           <p className="inline-flex items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--chip)] px-3 py-1 text-[11px] uppercase tracking-[0.28em] text-[var(--muted)]">
-            <Sparkles className="h-3.5 w-3.5 text-[var(--accent)]" />
+            <FolderTree className="h-3.5 w-3.5 text-[var(--accent)]" />
             Studio
           </p>
           <h1 className="mt-5 text-3xl font-semibold text-[var(--text)]">Prompt-driven workspace</h1>
@@ -592,7 +593,7 @@ body {
 });
 
 export const extractProjectFromResponse = (response: string): GeneratedProject => {
-  const projectText = response.trim();
+  const projectText = extractProjectEnvelope(response).trim();
 
   if (!projectText) {
     return createStarterProject();
@@ -668,10 +669,17 @@ export const projectToSandpackFiles = (
   );
 
 export const migrateLegacySession = (session: Partial<Session> & { currentCode?: unknown }): Session => {
+  const messages = Array.isArray(session.messages)
+    ? session.messages.map((message) => ({
+        ...message,
+        activities: Array.isArray(message.activities) ? message.activities : [],
+      }))
+    : [];
+
   if (session.currentProject) {
     return {
       id: session.id ?? crypto.randomUUID(),
-      messages: Array.isArray(session.messages) ? session.messages : [],
+      messages,
       currentProject: normalizeProject(session.currentProject as RawProjectShape),
       createdAt: session.createdAt ?? new Date().toISOString(),
     };
@@ -680,7 +688,7 @@ export const migrateLegacySession = (session: Partial<Session> & { currentCode?:
   if (typeof session.currentCode === "string") {
     return {
       id: session.id ?? crypto.randomUUID(),
-      messages: Array.isArray(session.messages) ? session.messages : [],
+      messages,
       currentProject: createFallbackProject(session.currentCode),
       createdAt: session.createdAt ?? new Date().toISOString(),
     };
@@ -688,7 +696,7 @@ export const migrateLegacySession = (session: Partial<Session> & { currentCode?:
 
   return {
     id: session.id ?? crypto.randomUUID(),
-    messages: Array.isArray(session.messages) ? session.messages : [],
+    messages,
     currentProject: createStarterProject(),
     createdAt: session.createdAt ?? new Date().toISOString(),
   };

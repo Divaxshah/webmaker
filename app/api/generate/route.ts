@@ -1,6 +1,11 @@
 import { NextRequest } from "next/server";
+import {
+  extractAgentActivities,
+  type GenerationStreamEvent,
+} from "@/lib/agent";
 import { buildSystemPrompt, getGeminiClient } from "@/lib/gemini";
 import { DEFAULT_LUMINO_MODEL, isLuminoModel } from "@/lib/models";
+import { estimateTokenCount } from "@/lib/utils";
 
 interface IncomingMessage {
   role: "user" | "assistant";
@@ -14,6 +19,9 @@ interface GenerateBody {
 }
 
 export const runtime = "nodejs";
+
+const encodeEvent = (event: GenerationStreamEvent, encoder: TextEncoder) =>
+  encoder.encode(`${JSON.stringify(event)}\n`);
 
 export async function POST(request: NextRequest) {
   try {
@@ -71,6 +79,9 @@ export async function POST(request: NextRequest) {
     const readableStream = new ReadableStream<Uint8Array>({
       async start(controller) {
         try {
+          let rawOutput = "";
+          let emittedActivities = 0;
+
           for await (const chunk of stream) {
             const delta = chunk.choices?.[0]?.delta?.content;
 
@@ -78,8 +89,46 @@ export async function POST(request: NextRequest) {
               continue;
             }
 
-            controller.enqueue(encoder.encode(delta));
+            rawOutput += delta;
+            controller.enqueue(
+              encodeEvent(
+                {
+                  type: "delta",
+                  tail: rawOutput.slice(-240),
+                  tokenCount: estimateTokenCount(rawOutput),
+                },
+                encoder
+              )
+            );
+
+            const activities = extractAgentActivities(rawOutput);
+            const newActivities = activities.slice(emittedActivities);
+
+            for (const activity of newActivities) {
+              controller.enqueue(
+                encodeEvent(
+                  {
+                    type: "activity",
+                    activity,
+                  },
+                  encoder
+                )
+              );
+            }
+
+            emittedActivities = activities.length;
           }
+
+          controller.enqueue(
+            encodeEvent(
+              {
+                type: "complete",
+                rawOutput,
+                tokenCount: estimateTokenCount(rawOutput),
+              },
+              encoder
+            )
+          );
 
           controller.close();
         } catch (error) {
@@ -90,7 +139,7 @@ export async function POST(request: NextRequest) {
 
     return new Response(readableStream, {
       headers: {
-        "Content-Type": "text/plain; charset=utf-8",
+        "Content-Type": "application/x-ndjson; charset=utf-8",
         "Cache-Control": "no-cache, no-transform",
         Connection: "keep-alive",
       },

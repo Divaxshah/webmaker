@@ -10,6 +10,8 @@ interface StatusIndicatorProps {
   latencyMs?: number;
   writingTokenCount?: number;
   errorMessage?: string;
+  activityCount?: number;
+  currentLabel?: string;
 }
 
 export function StatusIndicator({
@@ -18,55 +20,64 @@ export function StatusIndicator({
   latencyMs,
   writingTokenCount,
   errorMessage,
+  activityCount,
+  currentLabel,
 }: StatusIndicatorProps) {
   if (status === "thinking") {
     return (
-      <div className="flex items-center gap-2 text-[#dbc293]">
+      <div className="flex items-center gap-2 text-foreground">
         <motion.span
-          className="h-2 w-2 rounded-full bg-[#b58547]"
+          className="h-2 w-2 rounded-full bg-primary"
           animate={{ opacity: [0.35, 1, 0.35] }}
           transition={{ duration: 1.1, repeat: Infinity }}
         />
-        <span className="text-xs">Planning file structure...</span>
+        <span className="text-xs">Preparing the agent workflow...</span>
       </div>
     );
   }
 
   if (status === "writing") {
     return (
-      <div className="flex items-center gap-2 text-[#c4b8a2]">
+      <div className="flex items-center gap-2 text-foreground">
         <motion.span
-          className="h-2 w-2 rounded-full bg-[#8f7f65]"
+          className="h-2 w-2 rounded-full bg-primary"
           animate={{ scale: [1, 1.4, 1], opacity: [0.4, 1, 0.4] }}
           transition={{ duration: 0.9, repeat: Infinity }}
         />
-        <span className="text-xs">Generating project files...</span>
-        <span className="text-xs text-[#aea28f]">
+        <span className="text-xs">{currentLabel ?? "Running agent actions..."}</span>
+        {typeof activityCount === "number" && (
+          <span className="text-xs text-muted-foreground">
+            {activityCount} steps
+          </span>
+        )}
+        <span className="text-xs text-muted-foreground">
           ~{writingTokenCount ?? 0} tokens
         </span>
-        <PenLine size={12} className="text-[#96886f]" />
+        <PenLine size={12} className="text-muted-foreground" />
       </div>
     );
   }
 
   if (status === "done") {
     return (
-      <div className="flex items-center gap-2 text-[#bfcda8]">
-        <CheckCircle2 size={14} className="text-[#8ea56d]" />
+      <div className="flex items-center gap-2 text-foreground">
+        <CheckCircle2 size={14} className="text-primary" />
         <span className="text-xs">
-          ~{tokenCount ?? 0} tokens {latencyMs ? `· ${latencyMs}ms` : ""}
+          {typeof activityCount === "number" ? `${activityCount} steps` : "Completed"}
+          {tokenCount ? ` · ~${tokenCount} tokens` : ""}
+          {latencyMs ? ` · ${latencyMs}ms` : ""}
         </span>
       </div>
     );
   }
 
   return (
-    <div className="flex items-center gap-2 text-[#d8b0a6]">
-      <AlertCircle size={14} className="text-[#c06d5b]" />
+    <div className="flex items-center gap-2 text-destructive">
+      <AlertCircle size={14} className="text-destructive" />
       <span className="truncate text-xs">
         {errorMessage ?? "Generation failed"}
       </span>
-      <Loader2 size={12} className="animate-spin text-[#c06d5b]" />
+      <Loader2 size={12} className="animate-spin text-destructive" />
     </div>
   );
 }

@@ -1,8 +1,12 @@
 "use client";
 
 import { useCallback } from "react";
+import {
+  buildFallbackActivities,
+  type GenerationStreamEvent,
+} from "@/lib/agent";
 import { extractProjectFromResponse, serializeProjectForModel } from "@/lib/project";
-import { createId, estimateTokenCount } from "@/lib/utils";
+import { createId } from "@/lib/utils";
 import {
   getActiveSession,
   getActiveSessionMessages,
@@ -19,6 +23,14 @@ interface ApiMessage {
   role: "user" | "assistant";
   content: string;
 }
+
+const parseStreamEvent = (line: string): GenerationStreamEvent | null => {
+  try {
+    return JSON.parse(line) as GenerationStreamEvent;
+  } catch {
+    return null;
+  }
+};
 
 const toApiMessages = (messages: Message[]): ApiMessage[] => {
   return messages
@@ -73,6 +85,7 @@ export const useGeneration = () => {
           status: "thinking",
           createdAt: now,
           codeSnapshot: "",
+          activities: [],
         },
         activeSession.id
       );
@@ -80,6 +93,8 @@ export const useGeneration = () => {
       const startedAt = performance.now();
       let firstTokenAt: number | null = null;
       let rawOutput = "";
+      let lineBuffer = "";
+      let finalTokenCount = 0;
 
       try {
         const latestMessages = getActiveSessionMessages(useAppStore.getState());
@@ -119,23 +134,77 @@ export const useGeneration = () => {
             firstTokenAt = performance.now();
           }
 
-          rawOutput += chunk;
-          useAppStore.getState().setStreamingText(rawOutput.slice(-240));
+          lineBuffer += chunk;
+          const lines = lineBuffer.split("\n");
+          lineBuffer = lines.pop() ?? "";
 
-          useAppStore.getState().updateMessage(
-            assistantMessageId,
-            (message) => ({
-              ...message,
-              status: "writing",
-              codeSnapshot: rawOutput,
-              tokenCount: estimateTokenCount(rawOutput),
-            }),
-            activeSession.id
-          );
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) {
+              continue;
+            }
+
+            const event = parseStreamEvent(trimmed);
+            if (!event) {
+              continue;
+            }
+
+            if (event.type === "delta") {
+              useAppStore.getState().setStreamingText(event.tail);
+              useAppStore.getState().updateMessage(
+                assistantMessageId,
+                (message) => ({
+                  ...message,
+                  status: "writing",
+                  codeSnapshot: event.tail,
+                  tokenCount: event.tokenCount,
+                }),
+                activeSession.id
+              );
+              continue;
+            }
+
+            if (event.type === "activity") {
+              useAppStore.getState().updateMessage(
+                assistantMessageId,
+                (message) => ({
+                  ...message,
+                  status: "writing",
+                  activities: [
+                    ...(message.activities ?? []).filter(
+                      (activity) => activity.id !== event.activity.id
+                    ),
+                    event.activity,
+                  ],
+                }),
+                activeSession.id
+              );
+              continue;
+            }
+
+            rawOutput = event.rawOutput;
+            finalTokenCount = event.tokenCount;
+          }
+        }
+
+        if (lineBuffer.trim()) {
+          const event = parseStreamEvent(lineBuffer.trim());
+          if (event?.type === "complete") {
+            rawOutput = event.rawOutput;
+            finalTokenCount = event.tokenCount;
+          }
         }
 
         const ttfb = firstTokenAt ? Math.round(firstTokenAt - startedAt) : 0;
         const project = extractProjectFromResponse(rawOutput);
+        const finalState = useAppStore.getState();
+        const finalAssistant = getActiveSessionMessages(finalState).find(
+          (message) => message.id === assistantMessageId
+        );
+        const activities =
+          finalAssistant?.activities && finalAssistant.activities.length > 0
+            ? finalAssistant.activities
+            : buildFallbackActivities();
 
         useAppStore.getState().setCurrentProject(project, activeSession.id);
         useAppStore.getState().updateMessage(
@@ -145,7 +214,8 @@ export const useGeneration = () => {
             status: "done",
             content: `Created ${Object.keys(project.files).length} files for ${project.title}.`,
             codeSnapshot: rawOutput,
-            tokenCount: estimateTokenCount(rawOutput),
+            activities,
+            tokenCount: finalTokenCount || finalAssistant?.tokenCount,
             latencyMs: ttfb,
           }),
           activeSession.id

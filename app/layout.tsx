@@ -1,23 +1,22 @@
 import type { Metadata } from "next";
-import { Fraunces, JetBrains_Mono, Manrope, Geist } from "next/font/google";
+import { Bricolage_Grotesque, Outfit, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
-
-const display = Fraunces({
+const display = Bricolage_Grotesque({
   subsets: ["latin"],
   variable: "--font-display",
-  weight: ["400", "500", "600", "700"],
-});
-
-const body = Manrope({
-  subsets: ["latin"],
-  variable: "--font-body",
   weight: ["400", "500", "600", "700", "800"],
 });
 
-const code = JetBrains_Mono({
+const body = Outfit({
+  subsets: ["latin"],
+  variable: "--font-body",
+  weight: ["300", "400", "500", "600", "700"],
+});
+
+const code = IBM_Plex_Mono({
   subsets: ["latin"],
   variable: "--font-code",
   weight: ["400", "500", "600"],
@@ -25,11 +24,10 @@ const code = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Webmaker",
-    template: "%s | Webmaker",
+    default: "Webmaker Studio",
+    template: "%s | WM",
   },
-  description:
-    "Webmaker is a frontend-only AI studio for generating complete product websites and multi-file React applications.",
+  description: "Terminal and UI generation layer.",
 };
 
 export default function RootLayout({
@@ -45,19 +43,25 @@ export default function RootLayout({
           ? saved
           : (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
         document.documentElement.dataset.theme = theme;
+        if (theme === "dark") {
+          document.documentElement.classList.add("dark");
+        } else {
+          document.documentElement.classList.remove("dark");
+        }
       } catch (error) {
         document.documentElement.dataset.theme = "dark";
+        document.documentElement.classList.add("dark");
       }
     })();
   `;
 
   return (
-    <html lang="en" className={cn("h-full", "font-sans", geist.variable)} data-theme="dark" suppressHydrationWarning>
-      <body
-        className={`${display.variable} ${body.variable} ${code.variable} min-h-full antialiased`}
-      >
+    <html lang="en" className={cn("h-full dark", display.variable, body.variable, code.variable)} data-theme="dark" suppressHydrationWarning>
+      <body className="min-h-full font-sans antialiased bg-background text-foreground selection:bg-foreground selection:text-background">
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
-        {children}
+        <TooltipProvider>
+          {children}
+        </TooltipProvider>
       </body>
     </html>
   );

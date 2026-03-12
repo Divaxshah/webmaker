@@ -1,79 +1,120 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { ArrowUp, Loader2 } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { ArrowUp, Loader2, ChevronRight } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { LUMINO_MODELS, type LuminoModelId } from "@/lib/models";
+import { Button } from "@/components/ui/button";
 
 interface ChatInputProps {
   isGenerating: boolean;
   lastPrompt: string;
+  selectedModelId: LuminoModelId;
+  value: string;
+  focusToken?: string | null;
+  onModelChange: (modelId: LuminoModelId) => void;
+  onChange: (value: string) => void;
   onSubmit: (prompt: string) => void;
 }
 
-export function ChatInput({ isGenerating, lastPrompt, onSubmit }: ChatInputProps) {
-  const [value, setValue] = useState("");
+export function ChatInput({
+  isGenerating,
+  lastPrompt,
+  selectedModelId,
+  value,
+  focusToken,
+  onModelChange,
+  onChange,
+  onSubmit,
+}: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const resizeTextarea = () => {
     const textarea = textareaRef.current;
-    if (!textarea) {
-      return;
-    }
-
+    if (!textarea) return;
     textarea.style.height = "auto";
-    const next = Math.min(textarea.scrollHeight, 24 * 8);
-    textarea.style.height = `${Math.max(next, 24 * 3)}px`;
+    const next = Math.min(textarea.scrollHeight, 200);
+    textarea.style.height = `${Math.max(next, 56)}px`;
   };
 
   useEffect(() => {
     resizeTextarea();
   }, [value]);
 
-  const submit = () => {
-    const trimmed = value.trim();
-    if (!trimmed || isGenerating) {
+  useEffect(() => {
+    if (!focusToken) {
       return;
     }
 
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+      const length = value.length;
+      textareaRef.current?.setSelectionRange(length, length);
+    });
+  }, [focusToken, value]);
+
+  const submit = () => {
+    const trimmed = value.trim();
+    if (!trimmed || isGenerating) return;
     onSubmit(trimmed);
-    setValue("");
   };
 
   return (
-    <div className="border-t border-[var(--wm-border)] pt-3">
-      <textarea
-        ref={textareaRef}
-        value={value}
-        onChange={(event) => setValue(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" && !event.shiftKey) {
-            event.preventDefault();
-            submit();
-          }
+    <div className="flex min-w-0 flex-col gap-3 overflow-hidden">
+      <div className="relative flex min-w-0 items-center rounded-xl bg-secondary/50 border-2 border-border">
+         <select
+            id="model-select-input"
+            value={selectedModelId}
+            onChange={(event) => onModelChange(event.target.value as LuminoModelId)}
+            className="w-full relative z-10 appearance-none bg-transparent px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground outline-none cursor-pointer"
+          >
+            {LUMINO_MODELS.map((model) => (
+              <option key={model.id} value={model.id} className="bg-card text-foreground">
+                {model.label}
+              </option>
+            ))}
+          </select>
+          <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-muted-foreground">
+            <ChevronRight size={14} className="rotate-90" />
+          </div>
+      </div>
 
-          if (event.key === "ArrowUp" && !value && lastPrompt) {
-            event.preventDefault();
-            setValue(lastPrompt);
-          }
-        }}
-        placeholder="Describe the frontend you want: landing page, app shell, pricing, privacy, terms, dashboards, flows..."
-        disabled={isGenerating}
-        rows={3}
-        className="w-full resize-none bg-transparent px-0 py-0 text-sm font-medium leading-7 text-[var(--wm-text)] outline-none placeholder:text-[var(--wm-muted)] disabled:cursor-not-allowed"
-      />
+      <div className="relative min-w-0 overflow-hidden rounded-[2rem] bg-card border-2 border-border focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
+        <Textarea
+          ref={textareaRef}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault();
+              submit();
+            }
+            if (event.key === "ArrowUp" && !value && lastPrompt) {
+              event.preventDefault();
+              onChange(lastPrompt);
+            }
+          }}
+          placeholder="Describe the frontend you want to build..."
+          disabled={isGenerating}
+          className="w-full min-w-0 resize-none border-none bg-transparent px-6 py-5 text-sm font-medium leading-relaxed text-foreground shadow-none outline-none ring-0 focus-visible:ring-0 placeholder:text-muted-foreground/50 disabled:cursor-not-allowed break-words"
+          style={{ minHeight: "56px" }}
+        />
 
-      <div className="mt-3 flex items-center justify-between gap-3">
-        <span className="text-[11px] uppercase tracking-[0.22em] text-[var(--wm-muted)]">
-          Shift+Enter for newline
-        </span>
-        <button
-          type="button"
-          onClick={submit}
-          disabled={isGenerating || !value.trim()}
-          className="theme-toggle inline-flex h-10 min-w-10 items-center justify-center rounded-full px-3 text-[var(--wm-text)] transition disabled:cursor-not-allowed disabled:opacity-50"
-          aria-label="Submit prompt"
-        >
-          {isGenerating ? <Loader2 size={18} className="animate-spin" /> : <ArrowUp size={18} />}
-        </button>
+        <div className="flex items-center justify-between px-6 pb-4">
+          <span className="text-[10px] font-bold text-muted-foreground/60">
+            Shift + Enter for new line
+          </span>
+          <Button
+            type="button"
+            onClick={submit}
+            disabled={isGenerating || !value.trim()}
+            size="icon"
+            className="h-12 w-12 rounded-2xl bg-primary text-primary-foreground hover:scale-105 active:scale-95 transition-all disabled:opacity-50 shadow-lg shadow-primary/20"
+            title="Send Prompt"
+          >
+            {isGenerating ? <Loader2 size={18} className="animate-spin" /> : <ArrowUp size={18} />}
+          </Button>
+        </div>
       </div>
     </div>
   );

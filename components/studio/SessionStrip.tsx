@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Sparkles, Trash2 } from "lucide-react";
+import { Plus, Trash2, FolderTree } from "lucide-react";
 import type { Session } from "@/lib/types";
 
 interface SessionStripProps {
@@ -54,7 +54,7 @@ export function SessionStrip({
                 className="block w-full text-left"
               >
                 <div className="flex items-center gap-2">
-                  {isActive && <Sparkles size={13} className="text-[var(--wm-accent)]" />}
+                  {isActive && <FolderTree size={13} className="text-foreground" />}
                   <p className="truncate text-sm font-semibold text-[var(--wm-text)]">
                     {session.currentProject.title}
                   </p>

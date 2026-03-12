@@ -10,32 +10,27 @@ const links = [
 
 export function SiteHeader() {
   return (
-    <header className="sticky top-0 z-40 border-b border-[var(--wm-border)] bg-[var(--wm-topbar)] backdrop-blur-xl">
-      <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-5 py-4 lg:px-8">
-        <Link href="/" className="flex items-center gap-3">
-          <span className="grid h-11 w-11 place-items-center rounded-2xl border border-[var(--wm-border-strong)] bg-[var(--wm-panel)] shadow-[0_12px_36px_rgba(0,0,0,0.28)]">
-            <span className="h-3.5 w-3.5 rounded-full bg-[var(--wm-accent)]" />
-          </span>
-          <div>
-            <p className="font-display text-xl tracking-[0.18em] text-[var(--wm-text)]">WEBMAKER</p>
-            <p className="text-[10px] uppercase tracking-[0.3em] text-[var(--wm-muted)]">
-              Frontend studio
-            </p>
+    <header className="sticky top-0 z-50 w-full bg-background/80 backdrop-blur-md">
+      <div className="mx-auto flex h-20 items-center justify-between px-6 lg:px-12 max-w-[1400px]">
+        <Link href="/" className="flex items-center gap-3 group">
+          <div className="h-10 w-10 bg-primary text-primary-foreground flex items-center justify-center font-display text-2xl leading-none rounded-2xl rotate-3 group-hover:rotate-0 transition-transform">
+            W
           </div>
+          <span className="font-display text-2xl tracking-tight text-foreground font-bold">Webmaker</span>
         </Link>
 
-        <nav className="hidden items-center gap-6 text-sm text-[var(--wm-muted)] md:flex">
+        <nav className="hidden md:flex items-center gap-10 text-sm font-medium">
           {links.map((link) => (
-            <Link key={link.href} href={link.href} className="transition hover:text-[var(--wm-text)]">
+            <Link key={link.href} href={link.href} className="text-muted-foreground hover:text-primary transition-colors">
               {link.label}
             </Link>
           ))}
         </nav>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-6">
           <ThemeToggle />
-          <Link href="/studio" className="premium-primary hidden rounded-xl px-4 py-2 text-sm font-semibold md:inline-flex">
-            Open Studio
+          <Link href="/studio" className="hidden md:inline-flex h-12 items-center justify-center rounded-full bg-foreground px-8 text-sm font-bold text-background transition-all hover:scale-105 active:scale-95 shadow-lg shadow-black/5 dark:shadow-white/5">
+            Get Started
           </Link>
         </div>
       </div>

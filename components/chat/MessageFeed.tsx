@@ -42,14 +42,14 @@ export function MessageFeed({
 
   if (activities.length === 0) {
     return (
-      <div className="flex h-full flex-col justify-center gap-5 px-4">
-        <div>
-          <p className="text-xs uppercase tracking-[0.28em] text-[var(--wm-muted)]">
-            Kick off
-          </p>
-          <h2 className="font-display mt-2 text-2xl font-semibold text-[var(--wm-text)]">
-            Describe the full frontend product you want to build
+      <div className="flex min-w-0 flex-col gap-10 pb-6 overflow-hidden">
+        <div className="min-w-0">
+          <h2 className="font-display text-5xl tracking-tight font-bold text-foreground leading-none mb-4">
+            Initialize <span className="text-primary italic">Sequence.</span>
           </h2>
+          <p className="text-base text-muted-foreground font-medium leading-relaxed max-w-sm break-words">
+            Describe the interface you want to generate. Be specific about components, aesthetics, and user flows.
+          </p>
         </div>
         <SuggestionGrid onPick={onSuggestionPick} />
       </div>
@@ -57,7 +57,7 @@ export function MessageFeed({
   }
 
   return (
-    <div className="space-y-3 px-2 pb-4">
+    <div className="min-w-0 space-y-6 pb-4 overflow-hidden">
       {activities.map((activity, index) => (
         <ActivityGroup
           key={activity.user.id}

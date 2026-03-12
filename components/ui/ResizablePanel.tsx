@@ -18,7 +18,9 @@ export function ResizablePanel({
   minWidth = 280,
   maxWidth = 600,
 }: ResizablePanelProps) {
-  const [width, setWidth] = useState(initialWidth);
+  const [width, setWidth] = useState(() =>
+    clamp(initialWidth, minWidth, maxWidth)
+  );
   const draggingRef = useRef(false);
 
   useEffect(() => {
@@ -46,8 +48,8 @@ export function ResizablePanel({
   }, [maxWidth, minWidth]);
 
   return (
-    <div className="flex h-full min-h-0 w-full">
-      <div className="h-full min-h-0" style={{ width }}>
+    <div className="flex h-full min-h-0 w-full min-w-0">
+      <div className="h-full min-h-0 min-w-0 overflow-hidden" style={{ width }}>
         {left}
       </div>
 

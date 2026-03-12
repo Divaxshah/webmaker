@@ -15,14 +15,17 @@ import {
   getProjectPrimaryFile,
   projectToSandpackFiles,
 } from "@/lib/project";
-import type { GeneratedProject } from "@/lib/types";
+import type { GeneratedProject, RuntimeErrorState } from "@/lib/types";
+import { Cpu } from "lucide-react";
+import { motion } from "framer-motion";
 
 interface PreviewPanelProps {
   project: GeneratedProject;
-  runtimeError: string | null;
+  runtimeError: RuntimeErrorState | null;
   onDismissError: () => void;
   onFixError: () => void;
-  onRuntimeError: (error: { message: string; code: string }) => void;
+  onRuntimeError: (error: RuntimeErrorState) => void;
+  onShareError: () => void;
 }
 
 const theme = {
@@ -30,11 +33,11 @@ const theme = {
   colors: {
     ...defaultDark.colors,
     surface1: "#17140f",
-    surface2: "#1d1913",
-    surface3: "#262018",
+    surface2: "#241505",
+    surface3: "#2c1a07",
     base: "#f1eadf",
     clickable: "#d5c6af",
-    accent: "#a7773d",
+    accent: "#f97316",
     disabled: "#8d836f",
     error: "#cf7c69",
     errorSurface: "#2a1915",
@@ -42,8 +45,8 @@ const theme = {
   syntax: {
     ...defaultDark.syntax,
     plain: "#f1eadf",
-    keyword: "#d7c39f",
-    string: "#b9c69c",
+    keyword: "#fb923c",
+    string: "#bef264",
   },
 };
 
@@ -53,6 +56,7 @@ export function PreviewPanel({
   onDismissError,
   onFixError,
   onRuntimeError,
+  onShareError,
 }: PreviewPanelProps) {
   const [activeTab, setActiveTab] = useState<PreviewTab>("preview");
   const [activeFile, setActiveFile] = useState(() => getProjectPrimaryFile(project));
@@ -60,6 +64,12 @@ export function PreviewPanel({
   useEffect(() => {
     setActiveFile(getProjectPrimaryFile(project));
   }, [project]);
+
+  useEffect(() => {
+    if (runtimeError?.filePath && project.files[runtimeError.filePath]) {
+      setActiveFile(runtimeError.filePath);
+    }
+  }, [project.files, runtimeError?.filePath]);
 
   const files = useMemo(() => projectToSandpackFiles(project), [project]);
   const sandpackKey = useMemo(
@@ -71,21 +81,46 @@ export function PreviewPanel({
     [project]
   );
 
+  const isStarterProject = project.title === "New Workspace";
+
+  if (isStarterProject) {
+    return (
+      <div className="flex h-full w-full items-center justify-center p-8 bg-card/30 backdrop-blur-xl rounded-[2.5rem] border-2 border-border">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="flex flex-col items-center justify-center text-center max-w-md p-12"
+        >
+          <div className="w-20 h-20 bg-primary/10 text-primary flex items-center justify-center mb-8 rounded-2xl rotate-3">
+            <Cpu className="w-10 h-10" />
+          </div>
+          <h2 className="font-display text-4xl tracking-tight font-bold text-foreground mb-4 leading-none">System <br/><span className="text-primary italic">Idle.</span></h2>
+          <p className="text-sm text-muted-foreground font-medium leading-relaxed">
+            Workspace is empty. Provide a prompt to the Studio Assistant to begin generation sequence.
+          </p>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
-    <section className="relative flex h-full min-h-0 flex-col bg-transparent p-0 lg:p-5">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-[var(--wm-border)] pb-3 lg:mb-5 lg:pb-4">
+    <section className="relative flex h-full min-h-0 flex-col bg-card/30 backdrop-blur-xl border-2 border-border rounded-[2.5rem]">
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[2.5rem]">
+      <div className="flex flex-wrap items-center justify-between gap-4 p-0 bg-background/50 backdrop-blur-md">
         <TabBar activeTab={activeTab} onChange={setActiveTab} />
-        <div className="text-right">
-          <p className="text-[11px] uppercase tracking-[0.28em] text-[var(--wm-muted)]">
-            Active project
-          </p>
-          <p className="mt-1 text-sm text-[var(--wm-text)]">
-            {project.title} · {Object.keys(project.files).length} files
-          </p>
+        <div className="text-right px-6 py-2 flex gap-6 items-center">
+          <div className="flex flex-col items-end justify-center">
+            <p className="font-bold text-foreground text-sm tracking-tight">
+              {project.title}
+            </p>
+          </div>
+          <div className="bg-primary text-primary-foreground px-4 py-1.5 rounded-full font-bold text-xs shadow-lg shadow-primary/20">
+            {Object.keys(project.files).length} Files
+          </div>
         </div>
       </div>
 
-      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.75rem] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--wm-shell)_96%,transparent),color-mix(in_srgb,var(--wm-bg)_92%,var(--wm-shell)))] lg:border lg:border-[var(--wm-border)]">
+      <div className="relative flex min-h-0 flex-1 flex-col bg-background/50">
         <SandpackProvider
           key={sandpackKey}
           template="react-ts"
@@ -101,7 +136,7 @@ export function PreviewPanel({
             autoReload: true,
           }}
         >
-          <div className="absolute inset-0 overflow-hidden rounded-[1.75rem]">
+          <div className="absolute inset-0">
             <SandpackLayout
               style={{
                 height: "100%",
@@ -116,7 +151,7 @@ export function PreviewPanel({
             >
               <div className="relative min-h-0 flex-1">
                 <div
-                  className={`absolute inset-0 min-h-0 transition ${
+                  className={`absolute inset-0 min-h-0 transition-opacity duration-300 ${
                     activeTab === "preview"
                       ? "pointer-events-auto opacity-100"
                       : "pointer-events-none opacity-0"
@@ -128,7 +163,7 @@ export function PreviewPanel({
                 </div>
 
                 <div
-                  className={`absolute inset-0 min-h-0 transition ${
+                  className={`absolute inset-0 min-h-0 transition-opacity duration-300 ${
                     activeTab === "code"
                       ? "pointer-events-auto opacity-100"
                       : "pointer-events-none opacity-0"
@@ -137,12 +172,14 @@ export function PreviewPanel({
                   <CodeViewer
                     project={project}
                     activeFile={activeFile}
+                    runtimeError={runtimeError}
                     onActiveFileChange={setActiveFile}
+                    onShareError={onShareError}
                   />
                 </div>
 
                 <div
-                  className={`absolute inset-0 min-h-0 transition ${
+                  className={`absolute inset-0 min-h-0 transition-opacity duration-300 ${
                     activeTab === "console"
                       ? "pointer-events-auto opacity-100"
                       : "pointer-events-none opacity-0"
@@ -157,8 +194,20 @@ export function PreviewPanel({
       </div>
 
       {runtimeError && activeTab === "preview" && (
-        <ErrorBanner message={runtimeError} onDismiss={onDismissError} onFix={onFixError} />
+        <ErrorBanner
+          error={runtimeError}
+          onDismiss={onDismissError}
+          onOpenFile={() => {
+            if (runtimeError.filePath && project.files[runtimeError.filePath]) {
+              setActiveFile(runtimeError.filePath);
+              setActiveTab("code");
+            }
+          }}
+          onFix={onFixError}
+          onShare={onShareError}
+        />
       )}
+      </div>
     </section>
   );
 }

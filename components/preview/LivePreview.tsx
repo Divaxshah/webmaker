@@ -2,9 +2,10 @@
 
 import { SandpackPreview } from "@codesandbox/sandpack-react";
 import { useSandpackErrors } from "@/hooks/useSandpackErrors";
+import type { RuntimeErrorState } from "@/lib/types";
 
 interface LivePreviewProps {
-  onRuntimeError: (error: { message: string; code: string }) => void;
+  onRuntimeError: (error: RuntimeErrorState) => void;
 }
 
 export function LivePreview({ onRuntimeError }: LivePreviewProps) {

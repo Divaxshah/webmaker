@@ -7,7 +7,12 @@ export const getCurrentThemeMode = (): ThemeMode => {
     return "dark";
   }
 
-  return document.documentElement.dataset.theme === "light" ? "light" : "dark";
+  const savedTheme = window.localStorage.getItem("webmaker-theme");
+  if (savedTheme === "light" || savedTheme === "dark") {
+    return savedTheme;
+  }
+  
+  return document.documentElement.classList.contains("dark") ? "dark" : "light";
 };
 
 export const applyThemeMode = (theme: ThemeMode): void => {
@@ -15,6 +20,12 @@ export const applyThemeMode = (theme: ThemeMode): void => {
     return;
   }
 
+  if (theme === "dark") {
+    document.documentElement.classList.add("dark");
+  } else {
+    document.documentElement.classList.remove("dark");
+  }
+  
   document.documentElement.dataset.theme = theme;
   window.localStorage.setItem("webmaker-theme", theme);
 };
