@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { ArrowUp, Loader2, ChevronRight } from "lucide-react";
+import { ArrowUp, ChevronRight, Square } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { LUMINO_MODELS, type LuminoModelId } from "@/lib/models";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ interface ChatInputProps {
   onModelChange: (modelId: LuminoModelId) => void;
   onChange: (value: string) => void;
   onSubmit: (prompt: string) => void;
+  onStop: () => void;
 }
 
 export function ChatInput({
@@ -26,6 +27,7 @@ export function ChatInput({
   onModelChange,
   onChange,
   onSubmit,
+  onStop,
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -106,13 +108,21 @@ export function ChatInput({
           </span>
           <Button
             type="button"
-            onClick={submit}
-            disabled={isGenerating || !value.trim()}
+            onClick={isGenerating ? onStop : submit}
+            disabled={!isGenerating && !value.trim()}
             size="icon"
-            className="h-12 w-12 rounded-2xl bg-primary text-primary-foreground hover:scale-105 active:scale-95 transition-all disabled:opacity-50 shadow-lg shadow-primary/20"
-            title="Send Prompt"
+            className={`h-12 w-12 rounded-2xl text-primary-foreground transition-all shadow-lg ${
+              isGenerating
+                ? "bg-destructive hover:scale-105 active:scale-95 shadow-destructive/20"
+                : "bg-primary hover:scale-105 active:scale-95 shadow-primary/20"
+            } disabled:opacity-50`}
+            title={isGenerating ? "Stop Generation" : "Send Prompt"}
           >
-            {isGenerating ? <Loader2 size={18} className="animate-spin" /> : <ArrowUp size={18} />}
+            {isGenerating ? (
+              <Square size={16} className="fill-current" />
+            ) : (
+              <ArrowUp size={18} />
+            )}
           </Button>
         </div>
       </div>

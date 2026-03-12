@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Square } from "lucide-react";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { PreviewPanel } from "@/components/preview/PreviewPanel";
 import { SessionRail } from "@/components/studio/SessionRail";
@@ -24,7 +25,7 @@ export function StudioPage() {
   const [composerValue, setComposerValue] = useState("");
   const [composerFocusToken, setComposerFocusToken] = useState<string | null>(null);
 
-  const { generate } = useGeneration();
+  const { generate, stopGeneration } = useGeneration();
   const sessions = useAppStore((state) => state.sessions);
   const activeSessionId = useAppStore((state) => state.activeSessionId);
   const isGenerating = useAppStore((state) => state.isGenerating);
@@ -80,6 +81,7 @@ export function StudioPage() {
       onModelChange={(modelId: LuminoModelId) => setSelectedModelId(modelId)}
       onComposerChange={setComposerValue}
       onSubmit={submitPrompt}
+      onStop={stopGeneration}
       onNewSession={createSession}
     />
   );
@@ -129,6 +131,16 @@ export function StudioPage() {
             </div>
 
             <div className="flex items-center gap-6">
+              {isGenerating && (
+                <button
+                  type="button"
+                  onClick={stopGeneration}
+                  className="inline-flex items-center gap-2 rounded-full border border-destructive/30 bg-destructive/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] text-destructive transition hover:bg-destructive/15"
+                >
+                  <Square size={12} className="fill-current" />
+                  Stop
+                </button>
+              )}
               <ThemeToggle />
               {isGenerating && (
                 <div className="hidden items-center gap-3 text-xs font-bold tracking-tight md:flex rounded-full px-5 py-2 transition-all bg-primary text-primary-foreground shadow-lg shadow-primary/20">

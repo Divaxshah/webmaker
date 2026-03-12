@@ -2,6 +2,7 @@ import type {
   AgentActivity,
   AgentActivityKind,
   AgentActivityStatus,
+  GeneratedProject,
 } from "@/lib/types";
 
 const STEP_BLOCK_PATTERN = /<agent:step>\s*([\s\S]*?)\s*<\/agent:step>/g;
@@ -28,8 +29,19 @@ export type GenerationStreamEvent =
       activity: AgentActivity;
     }
   | {
+      type: "project";
+      project: GeneratedProject;
+    }
+  | {
       type: "complete";
-      rawOutput: string;
+      project: GeneratedProject;
+      summary: string;
+      tokenCount: number;
+    }
+  | {
+      type: "aborted";
+      project: GeneratedProject;
+      summary: string;
       tokenCount: number;
     };
 

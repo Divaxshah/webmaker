@@ -1,11 +1,7 @@
 "use client";
 
-import { useCallback } from "react";
-import {
-  buildFallbackActivities,
-  type GenerationStreamEvent,
-} from "@/lib/agent";
-import { extractProjectFromResponse, serializeProjectForModel } from "@/lib/project";
+import { useCallback, useRef } from "react";
+import { buildFallbackActivities, type GenerationStreamEvent } from "@/lib/agent";
 import { createId } from "@/lib/utils";
 import {
   getActiveSession,
@@ -43,6 +39,8 @@ const toApiMessages = (messages: Message[]): ApiMessage[] => {
 
 export const useGeneration = () => {
   const isGenerating = useAppStore((state) => state.isGenerating);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const wasCancelledRef = useRef(false);
 
   const generate = useCallback(
     async ({ prompt, includeCurrentProject = true }: GenerateOptions) => {
@@ -92,21 +90,26 @@ export const useGeneration = () => {
 
       const startedAt = performance.now();
       let firstTokenAt: number | null = null;
-      let rawOutput = "";
       let lineBuffer = "";
       let finalTokenCount = 0;
+      let finalSummary = "";
+      let requestWasCancelled = false;
 
       try {
+        wasCancelledRef.current = false;
         const latestMessages = getActiveSessionMessages(useAppStore.getState());
+        const abortController = new AbortController();
+        abortControllerRef.current = abortController;
         const response = await fetch("/api/generate", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
+          signal: abortController.signal,
           body: JSON.stringify({
             messages: toApiMessages(latestMessages),
             currentProject: includeCurrentProject
-              ? serializeProjectForModel(getActiveSession(useAppStore.getState()).currentProject)
+              ? getActiveSession(useAppStore.getState()).currentProject
               : null,
             modelId: useAppStore.getState().selectedModelId,
           }),
@@ -182,21 +185,50 @@ export const useGeneration = () => {
               continue;
             }
 
-            rawOutput = event.rawOutput;
-            finalTokenCount = event.tokenCount;
+            if (event.type === "project") {
+              useAppStore.getState().setCurrentProject(event.project, activeSession.id);
+              continue;
+            }
+
+            if (event.type === "complete") {
+              useAppStore.getState().setCurrentProject(event.project, activeSession.id);
+              finalTokenCount = event.tokenCount;
+              finalSummary = event.summary;
+              continue;
+            }
+
+            if (event.type === "aborted") {
+              useAppStore.getState().setCurrentProject(event.project, activeSession.id);
+              finalTokenCount = event.tokenCount;
+              finalSummary = event.summary;
+              requestWasCancelled = true;
+            }
           }
         }
 
         if (lineBuffer.trim()) {
           const event = parseStreamEvent(lineBuffer.trim());
+          if (event?.type === "project") {
+            useAppStore.getState().setCurrentProject(event.project, activeSession.id);
+          }
           if (event?.type === "complete") {
-            rawOutput = event.rawOutput;
+            useAppStore.getState().setCurrentProject(event.project, activeSession.id);
+            finalSummary = event.summary;
             finalTokenCount = event.tokenCount;
+          }
+          if (event?.type === "aborted") {
+            useAppStore.getState().setCurrentProject(event.project, activeSession.id);
+            finalSummary = event.summary;
+            finalTokenCount = event.tokenCount;
+            requestWasCancelled = true;
           }
         }
 
+        if (wasCancelledRef.current) {
+          requestWasCancelled = true;
+        }
+
         const ttfb = firstTokenAt ? Math.round(firstTokenAt - startedAt) : 0;
-        const project = extractProjectFromResponse(rawOutput);
         const finalState = useAppStore.getState();
         const finalAssistant = getActiveSessionMessages(finalState).find(
           (message) => message.id === assistantMessageId
@@ -206,34 +238,55 @@ export const useGeneration = () => {
             ? finalAssistant.activities
             : buildFallbackActivities();
 
-        useAppStore.getState().setCurrentProject(project, activeSession.id);
         useAppStore.getState().updateMessage(
           assistantMessageId,
           (message) => ({
             ...message,
-            status: "done",
-            content: `Created ${Object.keys(project.files).length} files for ${project.title}.`,
-            codeSnapshot: rawOutput,
+            status: requestWasCancelled ? "cancelled" : "done",
+            content:
+              finalSummary ||
+              (requestWasCancelled
+                ? "Generation stopped. Preserved the latest workspace snapshot."
+                : "Generation completed."),
+            codeSnapshot: useAppStore.getState().streamingText,
             activities,
             tokenCount: finalTokenCount || finalAssistant?.tokenCount,
-            latencyMs: ttfb,
+            latencyMs: requestWasCancelled ? undefined : ttfb,
           }),
           activeSession.id
         );
       } catch (error) {
+        const isAbort =
+          error instanceof DOMException && error.name === "AbortError";
         const errorMessage =
           error instanceof Error ? error.message : "Unknown generation error";
 
-        useAppStore.getState().updateMessage(
-          assistantMessageId,
-          (message) => ({
-            ...message,
-            status: "error",
-            content: errorMessage,
-          }),
-          activeSession.id
-        );
+        if (isAbort) {
+          useAppStore.getState().updateMessage(
+            assistantMessageId,
+            (message) => ({
+              ...message,
+              status: "cancelled",
+              content:
+                "Generation stopped. Preserved the latest workspace snapshot.",
+              codeSnapshot: useAppStore.getState().streamingText,
+            }),
+            activeSession.id
+          );
+        } else {
+          useAppStore.getState().updateMessage(
+            assistantMessageId,
+            (message) => ({
+              ...message,
+              status: "error",
+              content: errorMessage,
+            }),
+            activeSession.id
+          );
+        }
       } finally {
+        abortControllerRef.current = null;
+        wasCancelledRef.current = false;
         useAppStore.getState().setGenerating(false);
         useAppStore.getState().setStreamingText("");
       }
@@ -241,5 +294,10 @@ export const useGeneration = () => {
     [isGenerating]
   );
 
-  return { generate, isGenerating };
+  const stopGeneration = useCallback(() => {
+    wasCancelledRef.current = true;
+    abortControllerRef.current?.abort();
+  }, []);
+
+  return { generate, isGenerating, stopGeneration };
 };

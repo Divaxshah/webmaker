@@ -1,6 +1,11 @@
 export type MessageRole = "user" | "assistant";
 
-export type MessageStatus = "thinking" | "writing" | "done" | "error";
+export type MessageStatus =
+  | "thinking"
+  | "writing"
+  | "done"
+  | "error"
+  | "cancelled";
 
 export type AgentActivityKind =
   | "plan"

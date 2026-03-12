@@ -108,6 +108,14 @@ export function ActivityGroup({
                 />
               )}
 
+              {assistantMessage.status === "cancelled" && (
+                <StatusIndicator
+                  status="cancelled"
+                  activityCount={activities.length}
+                  tokenCount={assistantMessage.tokenCount}
+                />
+              )}
+
               <div className="space-y-3 pl-4 border-l-2 border-primary/20">
                 {activities.length > 0 ? (
                   activities.map((activity, index) => (
@@ -133,14 +141,16 @@ export function ActivityGroup({
               </div>
 
               {(assistantMessage.status === "writing" ||
-                (assistantMessage.status === "done" && assistantMessage.codeSnapshot)) && (
+                ((assistantMessage.status === "done" ||
+                  assistantMessage.status === "cancelled") &&
+                  assistantMessage.codeSnapshot)) && (
                 <div className="pl-4 border-l-2 border-primary/20">
                   <button
                     type="button"
                     onClick={() => setShowSnippet((prev) => !prev)}
                     className="text-[10px] font-bold text-muted-foreground/60 transition hover:text-primary"
                   >
-                    {showSnippet ? "Hide" : "Show"} Raw Stream
+                    {showSnippet ? "Hide" : "Show"} Agent Log
                   </button>
                   {showSnippet && (
                     <pre

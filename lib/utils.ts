@@ -23,26 +23,27 @@ export const STARTER_PROJECT: GeneratedProject = {
   title: "New Workspace",
   summary: "Start prompting to generate a frontend project.",
   framework: "react-ts",
-  entry: "App.tsx",
+  entry: "/src/main.tsx",
   dependencies: {
     react: "^18.0.0",
     "react-dom": "^18.0.0",
     "lucide-react": "latest",
     clsx: "latest",
-    "tailwind-merge": "latest"
+    "tailwind-merge": "latest",
   },
   files: {
-    "App.tsx": {
-      code: "export default function App() {\n  return (\n    <div className=\"flex min-h-screen items-center justify-center bg-zinc-950 p-8 text-zinc-50\">\n      <div className=\"text-center space-y-4\">\n        <h1 className=\"text-3xl font-bold tracking-tight\">Ready to build</h1>\n        <p className=\"text-zinc-400 max-w-sm\">\n          Enter a prompt in the chat to generate a new multi-file application.\n        </p>\n      </div>\n    </div>\n  );\n}",
+    "/src/main.tsx": {
+      code: "import React from \"react\";\nimport ReactDOM from \"react-dom/client\";\nimport App from \"./App\";\nimport \"./styles.css\";\n\nReactDOM.createRoot(document.getElementById(\"root\")!).render(\n  <React.StrictMode>\n    <App />\n  </React.StrictMode>\n);",
     },
-    "index.tsx": {
-      code: "import React from 'react';\nimport { createRoot } from 'react-dom/client';\nimport './styles.css';\nimport App from './App';\n\nconst root = createRoot(document.getElementById('root')!);\nroot.render(<App />);"
+    "/src/App.tsx": {
+      code: "export default function App() {\n  return (\n    <div className=\"flex min-h-screen items-center justify-center bg-zinc-950 p-8 text-zinc-50\">\n      <div className=\"space-y-4 text-center\">\n        <h1 className=\"text-3xl font-bold tracking-tight\">Ready to build</h1>\n        <p className=\"max-w-sm text-zinc-400\">\n          Enter a prompt in the chat to generate a new multi-file application.\n        </p>\n      </div>\n    </div>\n  );\n}",
+      active: true,
     },
-    "styles.css": {
-      code: "@tailwind base;\n@tailwind components;\n@tailwind utilities;"
-    }
-  }
-}
+    "/src/styles.css": {
+      code: "@tailwind base;\n@tailwind components;\n@tailwind utilities;\n\n:root {\n  color-scheme: dark;\n}\n\nbody {\n  margin: 0;\n  font-family: \"Manrope\", sans-serif;\n}",
+    },
+  },
+};
 
 export async function downloadProjectBundle(project: GeneratedProject) {
   const zip = new JSZip();

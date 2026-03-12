@@ -1,7 +1,13 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { AlertCircle, CheckCircle2, Loader2, PenLine } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Loader2,
+  PenLine,
+  Square,
+} from "lucide-react";
 import type { MessageStatus } from "@/lib/types";
 
 interface StatusIndicatorProps {
@@ -66,6 +72,19 @@ export function StatusIndicator({
           {typeof activityCount === "number" ? `${activityCount} steps` : "Completed"}
           {tokenCount ? ` · ~${tokenCount} tokens` : ""}
           {latencyMs ? ` · ${latencyMs}ms` : ""}
+        </span>
+      </div>
+    );
+  }
+
+  if (status === "cancelled") {
+    return (
+      <div className="flex items-center gap-2 text-amber-500">
+        <Square size={12} className="fill-current" />
+        <span className="text-xs">
+          Generation stopped
+          {typeof activityCount === "number" ? ` after ${activityCount} steps` : ""}
+          {tokenCount ? ` · ~${tokenCount} tokens` : ""}
         </span>
       </div>
     );

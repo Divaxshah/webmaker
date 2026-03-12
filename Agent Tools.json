@@ -1,147 +1,165 @@
 {
   "agent.plan": {
-    "description": "Break the request into concrete frontend tasks before editing or creating files.",
+    "description": "Break the request into a concrete frontend implementation plan.",
     "parameters": {
       "type": "object",
       "properties": {
         "goal": {
           "type": "string",
-          "example": "Expose granular tool activity in the studio timeline"
+          "description": "Short description of the build goal."
         }
       },
       "required": ["goal"]
     }
   },
   "agent.inspect": {
-    "description": "Inspect project structure, routes, components, or styling areas before making changes.",
+    "description": "Inspect the current project tree or a specific set of files.",
     "parameters": {
       "type": "object",
       "properties": {
         "targets": {
           "type": "array",
           "items": { "type": "string" },
-          "example": ["/src/App.tsx", "/src/styles.css"]
+          "description": "Optional absolute project paths to inspect."
         }
-      },
-      "required": ["targets"]
+      }
     }
   },
   "agent.search": {
-    "description": "Search the frontend codebase for components, hooks, status handling, or file references.",
+    "description": "Search filenames and file contents for a query.",
     "parameters": {
       "type": "object",
       "properties": {
         "query": {
           "type": "string",
-          "example": "ActivityGroup"
+          "description": "Text to search for across the current project."
         }
       },
       "required": ["query"]
     }
   },
   "agent.read": {
-    "description": "Read one or more frontend files closely before editing.",
+    "description": "Read specific files before editing them.",
     "parameters": {
       "type": "object",
       "properties": {
         "targets": {
           "type": "array",
           "items": { "type": "string" },
-          "example": ["/src/components/chat/ActivityTimeline.tsx"]
+          "description": "Absolute project paths to read."
         }
       },
       "required": ["targets"]
     }
   },
-  "agent.edit": {
-    "description": "Modify existing files with targeted frontend changes.",
+  "agent.create": {
+    "description": "Create one or more new frontend files.",
     "parameters": {
       "type": "object",
       "properties": {
+        "intent": {
+          "type": "string",
+          "description": "Short reason for the new files."
+        },
+        "files": {
+          "type": "object",
+          "description": "Map of absolute project paths to full file contents."
+        },
         "targets": {
           "type": "array",
           "items": { "type": "string" },
-          "example": ["/src/components/chat/ActivityGroup.tsx"]
-        },
-        "intent": {
-          "type": "string",
-          "example": "Render each streamed agent action as its own timeline item"
+          "description": "Optional path list matching the written files."
         }
       },
-      "required": ["targets", "intent"]
+      "required": ["intent", "files"]
     }
   },
-  "agent.create": {
-    "description": "Create new frontend files such as components, pages, stylesheets, or hooks.",
+  "agent.edit": {
+    "description": "Update one or more existing frontend files.",
     "parameters": {
       "type": "object",
       "properties": {
+        "intent": {
+          "type": "string",
+          "description": "Short reason for the edits."
+        },
+        "files": {
+          "type": "object",
+          "description": "Map of absolute project paths to full file contents."
+        },
         "targets": {
           "type": "array",
           "items": { "type": "string" },
-          "example": ["/src/components/chat/AgentTimeline.tsx"]
-        },
-        "intent": {
-          "type": "string",
-          "example": "Add a dedicated timeline component for streamed tool events"
+          "description": "Optional path list matching the written files."
         }
       },
-      "required": ["targets", "intent"]
+      "required": ["intent", "files"]
     }
   },
   "agent.rename": {
-    "description": "Rename a file when the structure should change without duplicating code.",
+    "description": "Rename a file without changing its contents.",
     "parameters": {
       "type": "object",
       "properties": {
         "from": {
           "type": "string",
-          "example": "/src/components/OldPanel.tsx"
+          "description": "Existing absolute project path."
         },
         "to": {
           "type": "string",
-          "example": "/src/components/AgentPanel.tsx"
+          "description": "New absolute project path."
         }
       },
       "required": ["from", "to"]
     }
   },
   "agent.delete": {
-    "description": "Remove obsolete frontend files that are no longer used.",
+    "description": "Delete obsolete files from the project.",
     "parameters": {
       "type": "object",
       "properties": {
         "targets": {
           "type": "array",
           "items": { "type": "string" },
-          "example": ["/src/components/legacy/OldStatus.tsx"]
+          "description": "Absolute project paths to remove."
         }
       },
       "required": ["targets"]
     }
   },
   "agent.verify": {
-    "description": "Verify imports, routes, component wiring, and final frontend consistency before completing the response.",
+    "description": "Run local consistency checks before finishing.",
     "parameters": {
       "type": "object",
       "properties": {
         "checks": {
           "type": "array",
           "items": { "type": "string" },
-          "example": ["imports resolve", "activity timeline renders in order", "project JSON is complete"]
+          "description": "Optional named checks such as entry exists or imports resolve."
         }
-      },
-      "required": ["checks"]
+      }
     }
   },
   "agent.complete": {
-    "description": "Mark the frontend task complete after planning, editing, and verification are finished.",
+    "description": "Finish the request and commit final project metadata.",
     "parameters": {
       "type": "object",
       "properties": {
         "summary": {
           "type": "string",
-          "example": "Granular agent activity stream and UI timeline are ready"
+          "description": "Short summary of what was created or updated."
+        },
+        "title": {
+          "type": "string",
+          "description": "Final project title."
+        },
+        "entry": {
+          "type": "string",
+          "description": "Absolute path to the final entry file."
+        },
+        "dependencies": {
+          "type": "object",
+          "description": "Dependency map to merge into the project."
         }
       },
       "required": ["summary"]

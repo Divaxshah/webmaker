@@ -17,6 +17,7 @@ interface ChatPanelProps {
   onModelChange: (modelId: LuminoModelId) => void;
   onComposerChange: (value: string) => void;
   onSubmit: (prompt: string) => void;
+  onStop: () => void;
   onNewSession: () => void;
 }
 
@@ -31,6 +32,7 @@ export function ChatPanel({
   onModelChange,
   onComposerChange,
   onSubmit,
+  onStop,
 }: ChatPanelProps) {
   return (
     <section className="relative flex h-full min-h-0 min-w-0 flex-col bg-card/30 backdrop-blur-xl border-2 border-border rounded-3xl transition-all">
@@ -63,7 +65,8 @@ export function ChatPanel({
           focusToken={composerFocusToken}
           onModelChange={onModelChange}
           onChange={onComposerChange}
-          onSubmit={onSubmit} 
+          onSubmit={onSubmit}
+          onStop={onStop}
         />
       </div>
       </div>

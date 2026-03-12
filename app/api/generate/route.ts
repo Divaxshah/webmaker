@@ -1,11 +1,9 @@
 import { NextRequest } from "next/server";
-import {
-  extractAgentActivities,
-  type GenerationStreamEvent,
-} from "@/lib/agent";
-import { buildSystemPrompt, getGeminiClient } from "@/lib/gemini";
+import type { GenerationStreamEvent } from "@/lib/agent";
+import { runAgentLoop } from "@/lib/agent-runtime";
 import { DEFAULT_LUMINO_MODEL, isLuminoModel } from "@/lib/models";
-import { estimateTokenCount } from "@/lib/utils";
+import { normalizeProject } from "@/lib/project";
+import type { GeneratedProject } from "@/lib/types";
 
 interface IncomingMessage {
   role: "user" | "assistant";
@@ -14,7 +12,7 @@ interface IncomingMessage {
 
 interface GenerateBody {
   messages: IncomingMessage[];
-  currentProject: string | null;
+  currentProject: GeneratedProject | null;
   modelId?: string;
 }
 
@@ -31,9 +29,6 @@ export async function POST(request: NextRequest) {
       return new Response("Invalid request payload", { status: 400 });
     }
 
-    const client = getGeminiClient();
-    const systemPrompt = await buildSystemPrompt();
-
     const messages = body.messages
       .filter(
         (message) =>
@@ -46,92 +41,38 @@ export async function POST(request: NextRequest) {
         content: message.content,
       }));
 
-    if (body.currentProject) {
-      messages.push({
-        role: "user",
-        content:
-          `Current project:\n${body.currentProject}\n\n` +
-          "Apply the latest request as an edit. Preserve working files unless a redesign requires changing them. Return the full updated project JSON.",
-      });
-    }
-
     const requestedModel = body.modelId;
     const modelId =
       requestedModel && isLuminoModel(requestedModel)
         ? requestedModel
         : DEFAULT_LUMINO_MODEL;
 
-    const stream = await client.chat.completions.create({
-      model: modelId,
-      stream: true,
-      temperature: 0.7,
-      messages: [
-        {
-          role: "system",
-          content: systemPrompt,
-        },
-        ...messages,
-      ],
-    });
-
     const encoder = new TextEncoder();
 
     const readableStream = new ReadableStream<Uint8Array>({
       async start(controller) {
         try {
-          let rawOutput = "";
-          let emittedActivities = 0;
-
-          for await (const chunk of stream) {
-            const delta = chunk.choices?.[0]?.delta?.content;
-
-            if (!delta) {
-              continue;
-            }
-
-            rawOutput += delta;
-            controller.enqueue(
-              encodeEvent(
-                {
-                  type: "delta",
-                  tail: rawOutput.slice(-240),
-                  tokenCount: estimateTokenCount(rawOutput),
-                },
-                encoder
-              )
-            );
-
-            const activities = extractAgentActivities(rawOutput);
-            const newActivities = activities.slice(emittedActivities);
-
-            for (const activity of newActivities) {
-              controller.enqueue(
-                encodeEvent(
-                  {
-                    type: "activity",
-                    activity,
-                  },
-                  encoder
-                )
-              );
-            }
-
-            emittedActivities = activities.length;
-          }
-
-          controller.enqueue(
-            encodeEvent(
-              {
-                type: "complete",
-                rawOutput,
-                tokenCount: estimateTokenCount(rawOutput),
-              },
-              encoder
-            )
-          );
-
+          await runAgentLoop({
+            messages,
+            currentProject: body.currentProject
+              ? normalizeProject(body.currentProject)
+              : null,
+            modelId,
+            signal: request.signal,
+            onEvent: (event) => {
+              controller.enqueue(encodeEvent(event, encoder));
+            },
+          });
           controller.close();
         } catch (error) {
+          if (
+            error instanceof DOMException &&
+            error.name === "AbortError"
+          ) {
+            controller.close();
+            return;
+          }
+
           controller.error(error);
         }
       },
