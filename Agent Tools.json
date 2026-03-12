@@ -1,0 +1,82 @@
+{
+  "webmaker-search-files": {
+    "description": "Search the project for relevant code before making changes.",
+    "parameters": {
+      "type": "object",
+      "required": ["query", "include_pattern"],
+      "properties": {
+        "query": { "type": "string" },
+        "include_pattern": { "type": "string" },
+        "exclude_pattern": { "type": "string" },
+        "case_sensitive": { "type": "boolean" }
+      }
+    }
+  },
+  "webmaker-view-file": {
+    "description": "Read a project file before editing it.",
+    "parameters": {
+      "type": "object",
+      "required": ["file_path"],
+      "properties": {
+        "file_path": { "type": "string" },
+        "lines": { "type": "string" }
+      }
+    }
+  },
+  "webmaker-line-replace": {
+    "description": "Make focused edits to existing files.",
+    "parameters": {
+      "type": "object",
+      "required": ["file_path", "search", "first_replaced_line", "last_replaced_line", "replace"],
+      "properties": {
+        "file_path": { "type": "string" },
+        "search": { "type": "string" },
+        "first_replaced_line": { "type": "number" },
+        "last_replaced_line": { "type": "number" },
+        "replace": { "type": "string" }
+      }
+    }
+  },
+  "webmaker-write-file": {
+    "description": "Create a new file or fully rewrite a file when necessary.",
+    "parameters": {
+      "type": "object",
+      "required": ["file_path", "content"],
+      "properties": {
+        "file_path": { "type": "string" },
+        "content": { "type": "string" }
+      }
+    }
+  },
+  "webmaker-fetch-website": {
+    "description": "Fetch website references when a design or copy reference is needed.",
+    "parameters": {
+      "type": "object",
+      "required": ["url"],
+      "properties": {
+        "url": { "type": "string" },
+        "formats": { "type": "string" }
+      }
+    }
+  },
+  "webmaker-read-console-logs": {
+    "description": "Inspect preview/runtime logs while debugging the frontend.",
+    "parameters": {
+      "type": "object",
+      "required": ["search"],
+      "properties": {
+        "search": { "type": "string" }
+      }
+    }
+  },
+  "webmaker-read-network-requests": {
+    "description": "Inspect browser network requests while debugging frontend behavior.",
+    "parameters": {
+      "type": "object",
+      "required": ["search"],
+      "properties": {
+        "search": { "type": "string" }
+      }
+    }
+  }
+}

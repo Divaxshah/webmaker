@@ -1,65 +1,161 @@
-import Image from "next/image";
+import type { Metadata } from "next";
+import Link from "next/link";
+import {
+  ArrowRight,
+  FolderTree,
+  PanelsTopLeft,
+  Sparkles,
+  Waypoints,
+} from "lucide-react";
+import { MarketingShell } from "@/components/site/MarketingShell";
 
-export default function Home() {
+export const metadata: Metadata = {
+  title: "Frontend AI Studio",
+  description:
+    "Generate full frontend applications with landing pages, app surfaces, pricing, privacy, and terms pages in one workspace.",
+};
+
+const features = [
+  {
+    title: "Multi-file generation",
+    body: "Create real project trees with routes, components, styles, and utility files instead of one demo component.",
+    icon: FolderTree,
+  },
+  {
+    title: "Modern studio workflow",
+    body: "Prompt on the left, inspect files and preview on the right, refine like v0, Lovable, or Bolt-style builders.",
+    icon: PanelsTopLeft,
+  },
+  {
+    title: "Frontend-only focus",
+    body: "Designed for polished websites and apps without backend scaffolding, auth flows, or infrastructure noise.",
+    icon: Waypoints,
+  },
+];
+
+export default function HomePage() {
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "Webmaker",
+    applicationCategory: "DesignApplication",
+    operatingSystem: "Web",
+    description:
+      "Webmaker is a frontend-only AI studio for generating complete websites and React applications with full file structures.",
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <MarketingShell>
+      <section className="relative overflow-hidden px-5 pb-16 pt-10 lg:px-8 lg:pb-24 lg:pt-18">
+        <div className="hero-mesh pointer-events-none absolute inset-0" />
+        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.02fr_0.98fr] lg:items-end">
+          <div className="relative z-10 space-y-7">
+            <p className="premium-chip inline-flex items-center gap-2 rounded-full px-4 py-2 text-[11px] uppercase tracking-[0.32em] text-[var(--wm-muted)]">
+              <Sparkles size={14} className="text-[var(--wm-accent)]" />
+              Full frontend application creation
+            </p>
+            <div className="space-y-4">
+              <h1 className="font-display max-w-5xl text-5xl leading-[0.95] text-[var(--wm-text)] md:text-7xl lg:text-[5.3rem]">
+                Build the landing page, the app, and the policy pages in one pass.
+              </h1>
+              <p className="max-w-2xl text-lg leading-8 text-[var(--wm-muted-soft)]">
+                Webmaker turns a product prompt into a complete React frontend with a real file tree, reusable components, polished styling, and a live workspace to keep refining it.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Link href="/studio" className="premium-primary inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold">
+                Open Studio
+                <ArrowRight size={16} />
+              </Link>
+              <Link href="/pricing" className="premium-action inline-flex items-center gap-2 px-1 py-3 text-sm font-semibold text-[var(--wm-text)]">
+                See Pricing
+              </Link>
+            </div>
+          </div>
+
+          <div className="relative z-10 overflow-hidden rounded-[2.2rem] border border-[var(--wm-border-strong)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--wm-panel)_92%,var(--wm-bg)),color-mix(in_srgb,var(--wm-shell)_96%,var(--wm-bg)))] p-5 shadow-[0_28px_90px_rgba(0,0,0,0.2)]">
+            <div className="grid gap-4 lg:grid-cols-[0.92fr_1.08fr]">
+              <div className="border-l border-[var(--wm-accent)] pl-4">
+                <p className="text-[11px] uppercase tracking-[0.3em] text-[var(--wm-muted)]">Prompt thread</p>
+                <div className="mt-4 space-y-3 text-sm leading-7">
+                  <div className="text-[var(--wm-muted-soft)]">
+                    Create a premium legal-tech website with a client portal, pricing page, privacy policy, and terms.
+                  </div>
+                  <div className="text-[var(--wm-text)]">
+                    Building 15 files across routes, navigation, dashboard components, and a shared design token stylesheet.
+                  </div>
+                </div>
+              </div>
+              <div className="border-l border-[var(--wm-border)] pl-4">
+                <div className="flex items-center justify-between gap-3 text-[11px] uppercase tracking-[0.3em] text-[var(--wm-muted)]">
+                  <span>File tree</span>
+                  <span className="rounded-full border border-[var(--wm-border)] bg-[var(--wm-panel-soft)] px-2.5 py-1 text-[10px] tracking-wider text-[var(--wm-muted)]">
+                    Preview ready
+                  </span>
+                </div>
+                <div className="mt-4 space-y-2 font-mono text-xs text-[var(--wm-muted-soft)]">
+                  {[
+                    "src/main.tsx",
+                    "src/App.tsx",
+                    "src/pages/HomePage.tsx",
+                    "src/pages/AppPage.tsx",
+                    "src/pages/PricingPage.tsx",
+                    "src/pages/PrivacyPage.tsx",
+                    "src/pages/TermsPage.tsx",
+                    "src/components/Nav.tsx",
+                    "src/styles.css",
+                  ].map((item) => (
+                    <div key={item}>{item}</div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </section>
+
+      <section className="px-5 pb-8 lg:px-8 lg:pb-14">
+        <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-3">
+          {features.map((feature) => {
+            const Icon = feature.icon;
+            return (
+              <article key={feature.title} className="border-l border-[var(--wm-border-strong)] pl-5">
+                <Icon className="h-5 w-5 text-[var(--wm-accent)]" />
+                <h2 className="mt-4 text-2xl font-semibold text-[var(--wm-text)]">{feature.title}</h2>
+                <p className="mt-2 text-sm leading-7 text-[var(--wm-muted-soft)]">{feature.body}</p>
+              </article>
+            );
+          })}
         </div>
-      </main>
-    </div>
+      </section>
+
+      <section className="px-5 pb-16 lg:px-8 lg:pb-24">
+        <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.85fr_1.15fr]">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.3em] text-[var(--wm-muted)]">Why teams switch</p>
+            <h2 className="font-display mt-4 text-4xl leading-none text-[var(--wm-text)] md:text-5xl">
+              One prompt becomes a complete, navigable frontend product.
+            </h2>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {[
+              "Reusable components instead of one giant page",
+              "Exportable file bundles for handoff and iteration",
+              "Route-aware projects with app and marketing surfaces",
+              "Design system continuity across every generated page",
+            ].map((item) => (
+              <div key={item} className="border-b border-[var(--wm-border)] pb-4 text-sm leading-7 text-[var(--wm-muted-soft)]">
+                {item}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
+    </MarketingShell>
   );
 }
