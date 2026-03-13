@@ -13,7 +13,7 @@ import { ConsoleView } from "@/components/preview/ConsoleView";
 import { TabBar, type PreviewTab } from "@/components/preview/TabBar";
 import { getProjectPrimaryFile } from "@/lib/project";
 import type { GeneratedProject, RuntimeErrorState } from "@/lib/types";
-import { Cpu, ExternalLink, Link2, Loader2, AlertTriangle } from "lucide-react";
+import { Cpu, ExternalLink, Link2, Loader2, AlertTriangle, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { getPreviewSandpackConfig } from "@/lib/download-bootstrap";
@@ -90,6 +90,11 @@ export function PreviewPanel({
   const [openingPreview, setOpeningPreview] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
+
+  const retryPreview = useCallback(() => {
+    setPreviewRefreshKey((k) => k + 1);
+  }, []);
 
   const openPreview = useCallback(async () => {
     setOpeningPreview(true);
@@ -226,6 +231,15 @@ export function PreviewPanel({
           <Button
             variant="outline"
             size="sm"
+            onClick={retryPreview}
+            title="Refresh preview (reload if blank or failed)"
+            className="rounded-xl border-border bg-background hover:bg-secondary text-foreground h-8 w-8 p-0 transition-all shadow-sm"
+          >
+            <RefreshCw size={13} />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => void copyPreviewLink()}
             disabled={openingPreview}
             title="Copy sharable preview link"
@@ -276,7 +290,7 @@ export function PreviewPanel({
           }
         `}</style>
         <SandpackProvider
-          key={sandpackKey}
+          key={`${sandpackKey}-${previewRefreshKey}`}
           template="vite-react-ts"
           files={previewConfig.files}
           theme={theme}
@@ -312,7 +326,10 @@ export function PreviewPanel({
                   }`}
                 >
                   <div className="flex h-full min-h-0 flex-col">
-                    <LivePreview onRuntimeError={onRuntimeError} />
+                    <LivePreview
+                      onRuntimeError={onRuntimeError}
+                      onRetryFullRemount={retryPreview}
+                    />
                   </div>
                 </div>
 
