@@ -13,7 +13,7 @@ import { ConsoleView } from "@/components/preview/ConsoleView";
 import { TabBar, type PreviewTab } from "@/components/preview/TabBar";
 import { getProjectPrimaryFile } from "@/lib/project";
 import type { GeneratedProject, RuntimeErrorState } from "@/lib/types";
-import { Cpu, ExternalLink, Link2, Loader2 } from "lucide-react";
+import { Cpu, ExternalLink, Link2, Loader2, AlertTriangle } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { getPreviewSandpackConfig } from "@/lib/download-bootstrap";
@@ -255,6 +255,13 @@ export function PreviewPanel({
             <span className="hidden sm:inline">Preview</span>
           </Button>
         </div>
+      </div>
+
+      <div className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 border-y border-amber-500/20 text-amber-700 dark:text-amber-400/90 text-xs">
+        <AlertTriangle className="size-3.5 shrink-0 mt-0.5" />
+        <p className="leading-snug">
+          Preview is in beta — you may see some text in the background. For the full experience, download the ZIP from the Code tab and run it locally.
+        </p>
       </div>
 
       <div className="relative flex min-h-0 flex-1 flex-col bg-background/50 preview-panel-wrapper">
