@@ -49,17 +49,13 @@ export async function storePreview(id: string, data: unknown): Promise<void> {
 }
 
 export async function retrievePreview(id: string): Promise<unknown | null> {
-  if (!id || typeof id !== "string") return null;
-  const r = getRedis();
-  if (r) {
-    try {
+  try {
+    if (!id || typeof id !== "string") return null;
+    const r = getRedis();
+    if (r) {
       const raw = await r.get(previewKey(id));
       return raw ?? null;
-    } catch {
-      return null;
     }
-  }
-  try {
     const raw = await readFile(join(STORE_DIR, `${id}.json`), "utf8");
     return JSON.parse(raw) as unknown;
   } catch {
