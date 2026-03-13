@@ -268,24 +268,24 @@ export default function HomePage() {
         <div className="absolute top-0 right-0 w-full h-full bg-[radial-gradient(circle_at_top_right,var(--color-primary)_0%,transparent_50%)] opacity-20" />
         <div className="mx-auto max-w-[1400px] w-full min-w-0 relative z-10 flex flex-col items-center">
           <div className="text-center max-w-3xl mx-auto mb-12 sm:mb-20 px-2">
-            <h2 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold tracking-tighter mb-4 sm:mb-6 text-background">
+            <h2 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold tracking-tighter mb-4 sm:mb-6 text-background dark:text-foreground">
               Simple, <span className="italic font-serif font-light text-primary">transparent</span> pricing.
             </h2>
-            <p className="text-base sm:text-lg md:text-xl text-background/70 font-medium">
+            <p className="text-base sm:text-lg md:text-xl text-background/70 dark:text-muted-foreground font-medium">
               Start building for free, upgrade when you need more power.
             </p>
           </div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 w-full max-w-5xl mx-auto mb-12 sm:mb-16 px-0 sm:px-2">
             {/* Hobby Plan */}
-            <div className="p-6 sm:p-8 rounded-2xl sm:rounded-3xl bg-background/5 border border-white/10 flex flex-col items-center text-center min-w-0">
-              <h3 className="text-2xl font-bold mb-2">Hobby</h3>
-              <div className="text-5xl font-display font-black mb-6">$0<span className="text-lg text-white/50 font-sans font-medium">/mo</span></div>
-              <p className="text-white/60 mb-8">For personal projects and exploration.</p>
-              <ul className="text-sm text-left w-full space-y-3 mb-8 text-white/80">
+            <div className="p-6 sm:p-8 rounded-2xl sm:rounded-3xl bg-background/5 border border-white/10 dark:bg-card dark:border-border flex flex-col items-center text-center min-w-0">
+              <h3 className="text-2xl font-bold mb-2 dark:text-card-foreground">Hobby</h3>
+              <div className="text-5xl font-display font-black mb-6 dark:text-card-foreground">$0<span className="text-lg text-white/50 dark:text-muted-foreground font-sans font-medium">/mo</span></div>
+              <p className="text-white/60 dark:text-muted-foreground mb-8">For personal projects and exploration.</p>
+              <ul className="text-sm text-left w-full space-y-3 mb-8 text-white/80 dark:text-card-foreground">
                 <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-primary" /> Basic generation</li>
                 <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-primary" /> 10 projects max</li>
-                <li className="flex items-center gap-2 text-white/40"><CheckCircle2 className="w-4 h-4" /> Community support</li>
+                <li className="flex items-center gap-2 text-white/40 dark:text-muted-foreground"><CheckCircle2 className="w-4 h-4 dark:text-muted-foreground" /> Community support</li>
               </ul>
             </div>
 
@@ -304,11 +304,11 @@ export default function HomePage() {
             </div>
 
             {/* Max Plan */}
-            <div className="p-6 sm:p-8 rounded-2xl sm:rounded-3xl bg-background/5 border border-white/10 flex flex-col items-center text-center min-w-0 sm:col-span-2 lg:col-span-1">
-              <h3 className="text-2xl font-bold mb-2">Max</h3>
-              <div className="text-5xl font-display font-black mb-6">$99<span className="text-lg text-white/50 font-sans font-medium">/mo</span></div>
-              <p className="text-white/60 mb-8">For teams scaling serious infrastructure.</p>
-              <ul className="text-sm text-left w-full space-y-3 mb-8 text-white/80">
+            <div className="p-6 sm:p-8 rounded-2xl sm:rounded-3xl bg-background/5 border border-white/10 dark:bg-card dark:border-border flex flex-col items-center text-center min-w-0 sm:col-span-2 lg:col-span-1">
+              <h3 className="text-2xl font-bold mb-2 dark:text-card-foreground">Max</h3>
+              <div className="text-5xl font-display font-black mb-6 dark:text-card-foreground">$99<span className="text-lg text-white/50 dark:text-muted-foreground font-sans font-medium">/mo</span></div>
+              <p className="text-white/60 dark:text-muted-foreground mb-8">For teams scaling serious infrastructure.</p>
+              <ul className="text-sm text-left w-full space-y-3 mb-8 text-white/80 dark:text-card-foreground">
                 <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-primary" /> Pro features included</li>
                 <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-primary" /> Custom AI Models</li>
                 <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-primary" /> White-label exports</li>
@@ -317,7 +317,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <Link href="/pricing" className="inline-flex h-14 items-center justify-center rounded-full bg-background px-10 text-base font-bold text-foreground transition-all hover:scale-105 hover:bg-primary hover:border-transparent hover:text-white border border-white/20">
+          <Link href="/pricing" className="inline-flex h-14 items-center justify-center rounded-full bg-background px-10 text-base font-bold text-foreground transition-all hover:scale-105 hover:bg-primary hover:border-transparent hover:text-white border border-white/20 dark:border-border">
             Compare All Plans
           </Link>
         </div>
