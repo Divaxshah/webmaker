@@ -49,7 +49,7 @@ export const STARTER_PROJECT: GeneratedProject = {
 export async function downloadProjectBundle(project: GeneratedProject) {
   const zip = new JSZip();
 
-  // Bootstrap: runnable project config (package.json, index.html, vite/ts/tailwind, README). When the agent
+  // Bootstrap: runnable project config (package.json, index.html, vite/tailwind, README). When the agent
   // creates these root files, they are in project.files and overwrite these defaults when we add files below.
   const bootstrap = getBootstrapFiles(project);
   for (const [path, content] of Object.entries(bootstrap)) {

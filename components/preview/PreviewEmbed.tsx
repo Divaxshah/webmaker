@@ -2,15 +2,15 @@
 
 import { useMemo } from "react";
 import { SandpackProvider, SandpackPreview } from "@codesandbox/sandpack-react";
-import { projectToSandpackFilesWithPreviewReset } from "@/lib/project";
 import type { GeneratedProject } from "@/lib/types";
+import { getPreviewSandpackConfig } from "@/lib/download-bootstrap";
 
 interface PreviewEmbedProps {
   project: GeneratedProject;
 }
 
 export function PreviewEmbed({ project }: PreviewEmbedProps) {
-  const files = useMemo(() => projectToSandpackFilesWithPreviewReset(project), [project]);
+  const previewConfig = useMemo(() => getPreviewSandpackConfig(project), [project]);
 
   const sandpackKey = useMemo(
     () =>
@@ -41,18 +41,15 @@ export function PreviewEmbed({ project }: PreviewEmbedProps) {
       `}</style>
       <SandpackProvider
         key={sandpackKey}
-        template="react-ts"
-        files={files}
+        template="vite-react-ts"
+        files={previewConfig.files}
         theme="light"
         customSetup={{
-          dependencies: project.dependencies,
-          entry: project.entry,
+          dependencies: previewConfig.dependencies,
+          devDependencies: previewConfig.devDependencies,
+          entry: previewConfig.entry,
         }}
         options={{
-          externalResources: [
-            "data:application/javascript;charset=utf-8,window.tailwind%3D%7Bconfig%3A%7BdarkMode%3A%22class%22%7D%7D%3B",
-            "https://cdn.tailwindcss.com",
-          ],
           autorun: true,
           autoReload: true,
         }}

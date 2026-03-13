@@ -11,14 +11,12 @@ import { LivePreview } from "@/components/preview/LivePreview";
 import { CodeViewer } from "@/components/preview/CodeViewer";
 import { ConsoleView } from "@/components/preview/ConsoleView";
 import { TabBar, type PreviewTab } from "@/components/preview/TabBar";
-import {
-  getProjectPrimaryFile,
-  projectToSandpackFilesWithPreviewReset,
-} from "@/lib/project";
+import { getProjectPrimaryFile } from "@/lib/project";
 import type { GeneratedProject, RuntimeErrorState } from "@/lib/types";
 import { Cpu, ExternalLink, Link2, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { getPreviewSandpackConfig } from "@/lib/download-bootstrap";
 
 interface PreviewPanelProps {
   project: GeneratedProject;
@@ -74,8 +72,8 @@ export function PreviewPanel({
     }
   }, [project.files, runtimeError?.filePath]);
 
-  const files = useMemo(
-    () => projectToSandpackFilesWithPreviewReset(project),
+  const previewConfig = useMemo(
+    () => getPreviewSandpackConfig(project),
     [project]
   );
   const sandpackKey = useMemo(
@@ -272,18 +270,15 @@ export function PreviewPanel({
         `}</style>
         <SandpackProvider
           key={sandpackKey}
-          template="react-ts"
-          files={files}
+          template="vite-react-ts"
+          files={previewConfig.files}
           theme={theme}
           customSetup={{
-            dependencies: project.dependencies,
-            entry: project.entry,
+            dependencies: previewConfig.dependencies,
+            devDependencies: previewConfig.devDependencies,
+            entry: previewConfig.entry,
           }}
           options={{
-            externalResources: [
-              "data:application/javascript;charset=utf-8,window.tailwind%3D%7Bconfig%3A%7BdarkMode%3A%22class%22%7D%7D%3B",
-              "https://cdn.tailwindcss.com",
-            ],
             autorun: true,
             autoReload: true,
           }}

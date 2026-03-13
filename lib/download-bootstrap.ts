@@ -6,15 +6,21 @@ const BASE_DEPS: Record<string, string> = {
 };
 
 const DEV_DEPS: Record<string, string> = {
-  "@types/react": "^18.2.0",
-  "@types/react-dom": "^18.2.0",
+  "@types/react": "^19.0.8",
+  "@types/react-dom": "^19.0.3",
   "@vitejs/plugin-react": "^4.3.4",
-  autoprefixer: "^10.4.20",
-  postcss: "^8.4.49",
-  tailwindcss: "^3.4.15",
-  typescript: "~5.6.0",
-  vite: "^6.0.0",
+  autoprefixer: "10.4.20",
+  "esbuild-wasm": "^0.17.12",
+  postcss: "8.4.49",
+  tailwindcss: "3.4.15",
+  typescript: "^4.9.5",
+  vite: "4.2.0",
 };
+
+interface BootstrapPackageJson {
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+}
 
 /**
  * Returns the set of config/setup files required to run a downloaded project
@@ -39,7 +45,7 @@ export function getBootstrapFiles(project: GeneratedProject): Record<string, str
       type: "module",
       scripts: {
         dev: "vite",
-        build: "tsc -b && vite build",
+        build: "tsc && vite build",
         preview: "vite preview",
       },
       dependencies: Object.fromEntries(
@@ -67,7 +73,7 @@ export function getBootstrapFiles(project: GeneratedProject): Record<string, str
 </html>
 `;
 
-  const viteConfigTs = `import react from "@vitejs/plugin-react";
+  const viteConfigJs = `import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 export default defineConfig({
@@ -84,7 +90,6 @@ export default defineConfig({
         module: "ESNext",
         skipLibCheck: true,
         moduleResolution: "bundler",
-        allowImportingTsExtensions: true,
         resolveJsonModule: true,
         isolatedModules: true,
         noEmit: true,
@@ -95,18 +100,6 @@ export default defineConfig({
         noFallthroughCasesInSwitch: true,
       },
       include: ["src"],
-    },
-    null,
-    2
-  );
-
-  const tsconfigNodeJson = JSON.stringify(
-    {
-      compilerOptions: {
-        target: "ES2022",
-        lib: ["ES2023"],
-      },
-      include: ["vite.config.ts"],
     },
     null,
     2
@@ -179,13 +172,68 @@ The built site is in \`dist/\`. Deploy that folder to any static host (Vercel, N
   return {
     "package.json": packageJson,
     "index.html": indexHtml,
-    "vite.config.ts": viteConfigTs,
+    "vite.config.js": viteConfigJs,
     "tsconfig.json": tsconfigJson,
-    "tsconfig.node.json": tsconfigNodeJson,
     "tailwind.config.js": tailwindConfigJs,
     "postcss.config.js": postcssConfigJs,
     ".gitignore": gitignore,
     "README.md": readme,
+  };
+}
+
+export function getPreviewSandpackConfig(project: GeneratedProject): {
+  files: Record<string, { code: string; hidden?: boolean; active?: boolean }>;
+  dependencies: Record<string, string>;
+  devDependencies: Record<string, string>;
+  entry: string;
+} {
+  const bootstrap = getBootstrapFiles(project);
+  const pkg = JSON.parse(bootstrap["package.json"] ?? "{}") as BootstrapPackageJson;
+  const PREVIEW_LOCKED_PATHS = new Set([
+    "/package.json",
+    "/index.html",
+    "/vite.config.js",
+    "/vite.config.ts",
+    "/tsconfig.json",
+    "/tsconfig.node.json",
+    "/.gitignore",
+    "/README.md",
+  ]);
+  const PREVIEW_OMIT_BOOTSTRAP_PATHS = new Set(["package.json", "vite.config.js"]);
+
+  const files: Record<string, { code: string; hidden?: boolean; active?: boolean }> =
+    Object.fromEntries(
+      Object.entries(bootstrap)
+        .filter(
+          ([path]) =>
+            path !== ".gitignore" &&
+            path !== "README.md" &&
+            !PREVIEW_OMIT_BOOTSTRAP_PATHS.has(path)
+        )
+        .map(([path, code]) => [`/${path.replace(/^\//, "")}`, { code, hidden: true }])
+    );
+
+  for (const [path, file] of Object.entries(project.files)) {
+    if (PREVIEW_LOCKED_PATHS.has(path)) {
+      continue;
+    }
+
+    files[path] = {
+      code: file.code,
+      ...(file.hidden ? { hidden: true } : {}),
+      ...(file.active ? { active: true } : {}),
+    };
+  }
+
+  return {
+    files,
+    dependencies: {
+      ...(pkg.dependencies ?? {}),
+    },
+    devDependencies: {
+      ...(pkg.devDependencies ?? {}),
+    },
+    entry: project.entry,
   };
 }
 
