@@ -46,8 +46,8 @@ export default function HomePage() {
 
   return (
     <MarketingShell>
-      {/* 1. Hero Section */}
-      <section className="relative px-4 sm:px-6 lg:px-12 overflow-x-hidden flex items-center min-h-[calc(100vh-5rem)] md:h-[calc(100vh-5rem)] pt-8 sm:pt-12 md:pt-0 pb-16 sm:pb-20">
+      {/* 1. Hero Section — one viewport minus header, no inner scroll; 100dvh avoids mobile browser chrome overflow */}
+      <section className="relative px-4 sm:px-6 lg:px-12 overflow-x-hidden overflow-y-hidden flex items-center min-h-[calc(min(100dvh,100vh)-5rem)] max-h-[calc(min(100dvh,100vh)-5rem)] md:h-[calc(min(100dvh,100vh)-5rem)] pt-8 sm:pt-12 md:pt-0 pb-16 sm:pb-20 box-border">
         {/* Animated Background Gradients */}
         <div className="absolute top-[-20%] right-[-10%] w-[50%] h-[50%] bg-primary/20 blur-[150px] rounded-full -z-10 animate-blob" />
         <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-accent/20 blur-[150px] rounded-full -z-10 animate-blob animation-delay-4000" />
