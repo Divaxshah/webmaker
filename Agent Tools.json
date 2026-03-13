@@ -63,7 +63,7 @@
         },
         "files": {
           "type": "object",
-          "description": "Map of absolute project paths to full file contents."
+          "description": "Map of absolute project paths to full file contents. MUST be an object. Example: { \"/src/App.tsx\": { \"code\": \"import React...\" } }"
         },
         "targets": {
           "type": "array",
@@ -85,7 +85,7 @@
         },
         "files": {
           "type": "object",
-          "description": "Map of absolute project paths to full file contents."
+          "description": "Map of absolute project paths to full file contents. MUST be an object. Example: { \"/src/App.tsx\": { \"code\": \"import React...\" } }"
         },
         "targets": {
           "type": "array",

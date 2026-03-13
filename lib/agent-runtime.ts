@@ -86,78 +86,92 @@ const throwIfAborted = (signal?: AbortSignal) => {
   }
 };
 
-const extractJsonObject = (value: string): string => {
-  const start = value.indexOf("{");
-  if (start === -1) {
-    throw new Error("Model response did not contain a JSON object.");
-  }
+const extractJsonObjects = (value: string): string[] => {
+  const objects: string[] = [];
+  let searchStartIndex = 0;
+  
+  while (true) {
+    const startIndex = value.indexOf("{", searchStartIndex);
+    if (startIndex === -1) break;
 
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    let foundCompleteObject = false;
 
-  for (let index = start; index < value.length; index += 1) {
-    const char = value[index];
+    for (let index = startIndex; index < value.length; index += 1) {
+      const char = value[index];
 
-    if (inString) {
-      if (escaped) {
-        escaped = false;
-        continue;
-      }
-
-      if (char === "\\") {
-        escaped = true;
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+          continue;
+        }
+        if (char === "\\") {
+          escaped = true;
+          continue;
+        }
+        if (char === "\"") {
+          inString = false;
+        }
         continue;
       }
 
       if (char === "\"") {
-        inString = false;
+        inString = true;
+        continue;
       }
 
-      continue;
-    }
-
-    if (char === "\"") {
-      inString = true;
-      continue;
-    }
-
-    if (char === "{") {
-      depth += 1;
-      continue;
-    }
-
-    if (char === "}") {
-      depth -= 1;
-      if (depth === 0) {
-        return value.slice(start, index + 1);
+      if (char === "{") {
+        depth += 1;
+        continue;
       }
+
+      if (char === "}") {
+        depth -= 1;
+        if (depth === 0) {
+          objects.push(value.slice(startIndex, index + 1));
+          searchStartIndex = index + 1;
+          foundCompleteObject = true;
+          break;
+        }
+      }
+    }
+    
+    if (!foundCompleteObject) {
+      searchStartIndex = startIndex + 1;
     }
   }
-
-  throw new Error("Model response contained incomplete JSON.");
+  
+  return objects;
 };
 
 const parseToolCall = (value: string): AgentToolCall => {
-  const parsed = JSON.parse(extractJsonObject(value)) as {
-    tool?: unknown;
-    arguments?: unknown;
-  };
-
-  if (
-    typeof parsed.tool !== "string" ||
-    !TOOL_NAMES.includes(parsed.tool as AgentToolName)
-  ) {
-    throw new Error("Model returned an unknown tool.");
+  const codeBlocks = Array.from(value.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi)).map(m => m[1]);
+  const candidatesToSearch = [...codeBlocks, value];
+  
+  for (const text of candidatesToSearch) {
+    const jsonObjects = extractJsonObjects(text);
+    for (const jsonObj of jsonObjects) {
+      try {
+        const parsed = JSON.parse(jsonObj) as {
+          tool?: unknown;
+          arguments?: unknown;
+        };
+        
+        if (typeof parsed.tool === "string" && TOOL_NAMES.includes(parsed.tool as AgentToolName)) {
+          return {
+            tool: parsed.tool as AgentToolName,
+            arguments: parsed.arguments && typeof parsed.arguments === "object" ? (parsed.arguments as Record<string, unknown>) : {},
+          };
+        }
+      } catch {
+        // Not a valid JSON or not a tool call, continue searching
+      }
+    }
   }
 
-  return {
-    tool: parsed.tool as AgentToolName,
-    arguments:
-      parsed.arguments && typeof parsed.arguments === "object"
-        ? (parsed.arguments as Record<string, unknown>)
-        : {},
-  };
+  throw new Error("Model response did not contain a valid JSON tool call with 'tool' and 'arguments'.");
 };
 
 const summarizeProjectForAgent = (project: GeneratedProject): string => {
@@ -196,39 +210,67 @@ const normalizeFilePayload = (
     return [];
   }
 
-  return Object.entries(value as Record<string, unknown>)
-    .map(([filePath, fileValue]) => {
+  const entries: Array<[string, { code: string; hidden?: boolean; active?: boolean }]> = [];
+
+  const processObjectMap = (obj: Record<string, unknown>) => {
+    for (const [filePath, fileValue] of Object.entries(obj)) {
+      // Ignore keys that are commonly used in hallucinated array items
+      if (filePath === "path" || filePath === "file" || filePath === "code" || filePath === "content") {
+        continue;
+      }
+
       const normalizedPath = normalizeProjectPath(filePath);
 
       if (typeof fileValue === "string") {
-        return [normalizedPath, { code: fileValue }] as const;
-      }
-
-      if (fileValue && typeof fileValue === "object" && "code" in fileValue) {
+        entries.push([normalizedPath, { code: fileValue }]);
+      } else if (fileValue && typeof fileValue === "object") {
         const candidate = fileValue as {
           code?: unknown;
+          content?: unknown;
           hidden?: unknown;
           active?: unknown;
         };
-
-        return [
-          normalizedPath,
-          {
-            code: typeof candidate.code === "string" ? candidate.code : "",
-            hidden: candidate.hidden === true,
-            active: candidate.active === true,
-          },
-        ] as const;
+        const code = typeof candidate.code === "string" ? candidate.code : typeof candidate.content === "string" ? candidate.content : null;
+        if (code !== null) {
+          entries.push([
+            normalizedPath,
+            {
+              code,
+              hidden: candidate.hidden === true,
+              active: candidate.active === true,
+            },
+          ]);
+        }
       }
+    }
+  };
 
-      return null;
-    })
-    .filter(
-      (
-        entry
-      ): entry is [string, { code: string; hidden?: boolean; active?: boolean }] =>
-        Boolean(entry)
-    );
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      if (item && typeof item === "object") {
+        const anyItem = item as any;
+        const code = typeof anyItem.code === "string" ? anyItem.code : typeof anyItem.content === "string" ? anyItem.content : null;
+        const filePath = typeof anyItem.path === "string" ? anyItem.path : typeof anyItem.file === "string" ? anyItem.file : null;
+        
+        if (filePath && code !== null) {
+          entries.push([
+            normalizeProjectPath(filePath),
+            {
+              code,
+              hidden: anyItem.hidden === true,
+              active: anyItem.active === true,
+            },
+          ]);
+        } else {
+          processObjectMap(item as Record<string, unknown>);
+        }
+      }
+    }
+  } else {
+    processObjectMap(value as Record<string, unknown>);
+  }
+
+  return entries;
 };
 
 const normalizeDependencyMap = (value: unknown): Record<string, string> => {
@@ -569,6 +611,7 @@ export const runAgentLoop = async ({
     let toolResult: unknown;
     let completedDetail = "";
 
+    try {
     switch (toolCall.tool) {
       case "agent.plan": {
         const goal =
@@ -697,7 +740,7 @@ export const runAgentLoop = async ({
         const writes = normalizeFilePayload(toolCall.arguments?.files);
 
         if (writes.length === 0) {
-          throw new Error(`${toolCall.tool} requires a non-empty files map.`);
+          throw new Error(`${toolCall.tool} requires a non-empty files map. Ensure "arguments.files" is an object mapping absolute file paths to { code: string } or to string contents. Arrays are not accepted.`);
         }
 
         const nextFiles = { ...project.files };
@@ -947,6 +990,34 @@ export const runAgentLoop = async ({
         });
         return;
       }
+    }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      streamLog = appendLog(
+        streamLog,
+        `Tool execution failed: ${errorMessage}`
+      );
+      await onEvent({
+        type: "delta",
+        tail: streamLog.slice(-240),
+        tokenCount: totalTokens,
+      });
+      await onEvent({
+        type: "activity",
+        activity: buildActivity(
+          activityId,
+          toolCall.tool,
+          "error",
+          errorMessage,
+          activityTargets
+        ),
+      });
+
+      conversation.push({
+        role: "user",
+        content: `Tool execution failed:\n${errorMessage}\n\nFix the arguments and try again.`,
+      });
+      continue;
     }
 
     await onEvent({
