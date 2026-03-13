@@ -9,20 +9,34 @@ interface Props {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { id } = await params;
-  const project = (await retrievePreview(id)) as GeneratedProject | null;
-  const title = project?.title ?? "Webmaker Preview";
-  return {
-    title,
-    description: project?.summary ?? "A shared Webmaker project preview.",
-  };
+  try {
+    const { id } = await params;
+    const project = (await retrievePreview(id)) as GeneratedProject | null;
+    const title = project?.title ?? "Webmaker Preview";
+    return {
+      title,
+      description: project?.summary ?? "A shared Webmaker project preview.",
+    };
+  } catch {
+    return { title: "Webmaker Preview", description: "A shared Webmaker project preview." };
+  }
 }
 
 export default async function PreviewPage({ params }: Props) {
-  const { id } = await params;
-  const project = (await retrievePreview(id)) as GeneratedProject | null;
+  let id: string;
+  let project: GeneratedProject | null;
 
-  if (!project) {
+  try {
+    const resolved = await params;
+    id = resolved.id;
+    project = (await retrievePreview(id)) as GeneratedProject | null;
+  } catch {
+    return (
+      <ClientPreviewFallback id="" />
+    );
+  }
+
+  if (!project || !project.files || typeof project.title !== "string") {
     return <ClientPreviewFallback id={id} />;
   }
 
