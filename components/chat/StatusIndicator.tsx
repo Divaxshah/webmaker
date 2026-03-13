@@ -10,24 +10,42 @@ import {
 } from "lucide-react";
 import type { MessageStatus } from "@/lib/types";
 
+export interface FileEditCounts {
+  created: number;
+  deleted: number;
+  edited: number;
+}
+
 interface StatusIndicatorProps {
   status: MessageStatus;
-  tokenCount?: number;
   latencyMs?: number;
-  writingTokenCount?: number;
   errorMessage?: string;
   activityCount?: number;
   currentLabel?: string;
+  fileEdits?: FileEditCounts;
+}
+
+function FileEditsLine({ fileEdits }: { fileEdits: FileEditCounts }) {
+  const parts: string[] = [];
+  if (fileEdits.created > 0) parts.push(`⊕${fileEdits.created}`);
+  if (fileEdits.deleted > 0) parts.push(`⊖${fileEdits.deleted}`);
+  if (fileEdits.edited > 0) parts.push(`✎${fileEdits.edited}`);
+  if (parts.length === 0) return null;
+  return (
+    <span className="text-xs text-muted-foreground font-medium tabular-nums">
+      {" "}
+      {parts.join(" ")}
+    </span>
+  );
 }
 
 export function StatusIndicator({
   status,
-  tokenCount,
   latencyMs,
-  writingTokenCount,
   errorMessage,
   activityCount,
   currentLabel,
+  fileEdits,
 }: StatusIndicatorProps) {
   if (status === "thinking") {
     return (
@@ -44,7 +62,7 @@ export function StatusIndicator({
 
   if (status === "writing") {
     return (
-      <div className="flex items-center gap-2 text-foreground">
+      <div className="flex items-center gap-2 text-foreground flex-wrap">
         <motion.span
           className="h-2 w-2 rounded-full bg-primary"
           animate={{ scale: [1, 1.4, 1], opacity: [0.4, 1, 0.4] }}
@@ -52,13 +70,9 @@ export function StatusIndicator({
         />
         <span className="text-xs">{currentLabel ?? "Running agent actions..."}</span>
         {typeof activityCount === "number" && (
-          <span className="text-xs text-muted-foreground">
-            {activityCount} steps
-          </span>
+          <span className="text-xs text-muted-foreground">{activityCount} steps</span>
         )}
-        <span className="text-xs text-muted-foreground">
-          ~{writingTokenCount ?? 0} tokens
-        </span>
+        {fileEdits && <FileEditsLine fileEdits={fileEdits} />}
         <PenLine size={12} className="text-muted-foreground" />
       </div>
     );
@@ -66,26 +80,26 @@ export function StatusIndicator({
 
   if (status === "done") {
     return (
-      <div className="flex items-center gap-2 text-foreground">
+      <div className="flex items-center gap-2 text-foreground flex-wrap">
         <CheckCircle2 size={14} className="text-primary" />
         <span className="text-xs">
           {typeof activityCount === "number" ? `${activityCount} steps` : "Completed"}
-          {tokenCount ? ` · ~${tokenCount} tokens` : ""}
-          {latencyMs ? ` · ${latencyMs}ms` : ""}
+          {latencyMs != null ? ` · ${(latencyMs / 1000).toFixed(1)}s` : ""}
         </span>
+        {fileEdits && <FileEditsLine fileEdits={fileEdits} />}
       </div>
     );
   }
 
   if (status === "cancelled") {
     return (
-      <div className="flex items-center gap-2 text-amber-500">
+      <div className="flex items-center gap-2 text-amber-500 flex-wrap">
         <Square size={12} className="fill-current" />
         <span className="text-xs">
           Generation stopped
           {typeof activityCount === "number" ? ` after ${activityCount} steps` : ""}
-          {tokenCount ? ` · ~${tokenCount} tokens` : ""}
         </span>
+        {fileEdits && <FileEditsLine fileEdits={fileEdits} />}
       </div>
     );
   }
