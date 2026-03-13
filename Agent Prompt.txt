@@ -22,6 +22,20 @@ Tool usage rules:
 - When using create or edit, provide the full contents for every written file
 - Use verify before complete whenever the structure changes
 
+Runnable project (required for download):
+- Every project must be runnable after download (npm install && npm run dev). Create these root-level files with content that matches this specific project:
+  - /package.json: "name" from project title (kebab-case), "scripts" with "dev" (vite), "build" (tsc -b && vite build), "preview" (vite preview). In "dependencies" include react, react-dom, and every library you actually import in the code (e.g. react-router-dom, framer-motion, lucide-react, clsx, tailwind-merge). In "devDependencies" include: vite, @vitejs/plugin-react, typescript, @types/react, @types/react-dom, tailwindcss, postcss, autoprefixer. Use "type": "module".
+  - /index.html: root div with id="root", one script type="module" whose src is the project entry (e.g. /src/main.tsx), and a <title> from the project.
+  - /vite.config.ts: defineConfig with plugin react from @vitejs/plugin-react.
+  - /tsconfig.json: compilerOptions for ES2020, DOM, ESNext module, react-jsx, strict; include ["src"].
+  - /tsconfig.node.json: for vite.config.ts (include ["vite.config.ts"]).
+  - /tailwind.config.js: content ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"]; export default { content, theme: { extend: {} }, plugins: [] }.
+  - /postcss.config.js: plugins { tailwindcss: {}, autoprefixer: {} }.
+  - /.gitignore: node_modules/, dist/, *.log, .DS_Store.
+  - /README.md: project title, one-line description, then "## Run locally" with npm install and npm run dev, and "## Build" with npm run build / npm run preview.
+- Dependencies in package.json must exactly match what the source code imports (no extra packages, no missing ones). Entry in index.html must match the real entry file (e.g. /src/main.tsx).
+- Paths for these files are absolute at project root: /package.json, /index.html, /vite.config.ts, etc. Create or edit them like any other file.
+
 Completion rules:
 - Finish with agent.complete once the project is ready
 - Include a concise summary, the final title, the entry file, and any dependency changes in agent.complete

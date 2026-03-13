@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import {
-  ExternalLink,
   FileCode2,
   Copy,
   Download,
@@ -12,7 +11,7 @@ import {
 } from "lucide-react";
 import { getProjectFilePaths } from "@/lib/project";
 import type { GeneratedProject, RuntimeErrorState } from "@/lib/types";
-import { downloadProjectBundle, openProjectInStackBlitz } from "@/lib/utils";
+import { downloadProjectBundle } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 interface CodeViewerProps {
@@ -70,15 +69,6 @@ export function CodeViewer({
           >
             <Download size={14} className="mr-2" />
             ZIP
-          </Button>
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => openProjectInStackBlitz(project)}
-            className="rounded-xl bg-primary text-primary-foreground h-9 px-4 text-xs font-bold transition-all shadow-lg shadow-primary/20"
-          >
-            <ExternalLink size={14} className="mr-2" />
-            StackBlitz
           </Button>
         </div>
       </div>

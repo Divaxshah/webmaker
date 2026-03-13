@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import {
   SandpackLayout,
   SandpackProvider,
@@ -13,11 +13,12 @@ import { ConsoleView } from "@/components/preview/ConsoleView";
 import { TabBar, type PreviewTab } from "@/components/preview/TabBar";
 import {
   getProjectPrimaryFile,
-  projectToSandpackFiles,
+  projectToSandpackFilesWithPreviewReset,
 } from "@/lib/project";
 import type { GeneratedProject, RuntimeErrorState } from "@/lib/types";
-import { Cpu } from "lucide-react";
+import { Cpu, ExternalLink, Link2, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
+import { Button } from "@/components/ui/button";
 
 interface PreviewPanelProps {
   project: GeneratedProject;
@@ -71,7 +72,10 @@ export function PreviewPanel({
     }
   }, [project.files, runtimeError?.filePath]);
 
-  const files = useMemo(() => projectToSandpackFiles(project), [project]);
+  const files = useMemo(
+    () => projectToSandpackFilesWithPreviewReset(project),
+    [project]
+  );
   const sandpackKey = useMemo(
     () =>
       `${project.title}-${project.entry}-${Object.values(project.files).reduce(
@@ -82,6 +86,54 @@ export function PreviewPanel({
   );
 
   const isStarterProject = project.title === "New Workspace";
+
+  const [openingPreview, setOpeningPreview] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const openPreview = useCallback(async () => {
+    setOpeningPreview(true);
+    try {
+      const res = await fetch("/api/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project }),
+      });
+      const json = (await res.json()) as { url?: string };
+      if (json.url) {
+        setPreviewUrl(json.url);
+        window.open(json.url, "_blank", "noopener,noreferrer");
+      }
+    } finally {
+      setOpeningPreview(false);
+    }
+  }, [project]);
+
+  const copyPreviewLink = useCallback(async () => {
+    let url = previewUrl;
+    if (!url) {
+      setOpeningPreview(true);
+      try {
+        const res = await fetch("/api/preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ project }),
+        });
+        const json = (await res.json()) as { url?: string };
+        if (json.url) {
+          url = json.url;
+          setPreviewUrl(json.url);
+        }
+      } finally {
+        setOpeningPreview(false);
+      }
+    }
+    if (url) {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }, [project, previewUrl]);
 
   if (isStarterProject) {
     return (
@@ -108,19 +160,58 @@ export function PreviewPanel({
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[2.5rem]">
       <div className="flex flex-wrap items-center justify-between gap-4 p-0 bg-background/50 backdrop-blur-md">
         <TabBar activeTab={activeTab} onChange={setActiveTab} />
-        <div className="text-right px-6 py-2 flex gap-6 items-center">
-          <div className="flex flex-col items-end justify-center">
-            <p className="font-bold text-foreground text-sm tracking-tight">
-              {project.title}
-            </p>
-          </div>
-          <div className="bg-primary text-primary-foreground px-4 py-1.5 rounded-full font-bold text-xs shadow-lg shadow-primary/20">
+        <div className="text-right px-4 py-2 flex gap-3 items-center">
+          <p className="font-bold text-foreground text-sm tracking-tight hidden sm:block">
+            {project.title}
+          </p>
+          <div className="bg-primary text-primary-foreground px-3 py-1.5 rounded-full font-bold text-xs shadow-lg shadow-primary/20">
             {Object.keys(project.files).length} Files
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void copyPreviewLink()}
+            disabled={openingPreview}
+            title="Copy sharable preview link"
+            className="rounded-xl border-border bg-background hover:bg-secondary text-foreground h-8 w-8 p-0 transition-all shadow-sm"
+          >
+            {openingPreview ? (
+              <Loader2 size={13} className="animate-spin" />
+            ) : copied ? (
+              <span className="text-[10px] font-black text-green-500">✓</span>
+            ) : (
+              <Link2 size={13} />
+            )}
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => void openPreview()}
+            disabled={openingPreview}
+            title="Open preview in new tab"
+            className="rounded-xl bg-primary text-primary-foreground h-8 px-3 text-xs font-bold transition-all shadow-lg shadow-primary/20 gap-1.5"
+          >
+            {openingPreview ? (
+              <Loader2 size={13} className="animate-spin" />
+            ) : (
+              <ExternalLink size={13} />
+            )}
+            <span className="hidden sm:inline">Preview</span>
+          </Button>
         </div>
       </div>
 
-      <div className="relative flex min-h-0 flex-1 flex-col bg-background/50">
+      <div className="relative flex min-h-0 flex-1 flex-col bg-background/50 preview-panel-wrapper">
+        <style>{`
+          .preview-panel-wrapper .sp-wrapper,
+          .preview-panel-wrapper .sp-layout,
+          .preview-panel-wrapper .sp-preview-container,
+          .preview-panel-wrapper .sp-preview-iframe,
+          .preview-panel-wrapper iframe {
+            height: 100% !important;
+            width: 100% !important;
+          }
+        `}</style>
         <SandpackProvider
           key={sandpackKey}
           template="react-ts"
@@ -131,7 +222,10 @@ export function PreviewPanel({
             entry: project.entry,
           }}
           options={{
-            externalResources: ["https://cdn.tailwindcss.com"],
+            externalResources: [
+              "data:application/javascript;charset=utf-8,window.tailwind%3D%7Bconfig%3A%7BdarkMode%3A%22class%22%7D%7D%3B",
+              "https://cdn.tailwindcss.com",
+            ],
             autorun: true,
             autoReload: true,
           }}

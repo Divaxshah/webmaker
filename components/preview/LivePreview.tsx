@@ -13,7 +13,7 @@ export function LivePreview({ onRuntimeError }: LivePreviewProps) {
 
   return (
     <div
-      className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-[var(--wm-border)] bg-[#1a1712] p-1"
+      className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-[var(--wm-border)] bg-white dark:bg-zinc-900 p-1"
       style={{ height: "100%", minHeight: 0 }}
     >
       <SandpackPreview

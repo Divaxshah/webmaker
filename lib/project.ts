@@ -668,6 +668,237 @@ export const projectToSandpackFiles = (
     ])
   );
 
+/**
+ * Sandpack uses a CDN Play build of Tailwind which:
+ *   ✓ auto-scans DOM for utility classes and injects them
+ *   ✓ supports @layer blocks
+ *   ✗ does NOT support @apply  (PostCSS-only)
+ *   ✗ does NOT support @tailwind / @import "tailwindcss" / @plugin
+ *
+ * Strategy:
+ *   1. Strip PostCSS directives that the CDN can't run.
+ *   2. Resolve @apply lines into their Tailwind base classes so that rules
+ *      defined via @apply don't become empty selectors.  Since we can't run
+ *      PostCSS in the browser we do a best-effort class→CSS expansion using
+ *      a small hard-coded map of the most common patterns.
+ *   3. Unwrap @layer blocks so the rules inside are still emitted (CDN already
+ *      injects its own base/components/utilities layers, so the wrappers are
+ *      redundant anyway).
+ */
+
+/** Resolves a space-separated list of Tailwind class tokens to raw CSS property strings */
+function applyToRawCss(classes: string): string {
+  const map: Record<string, string> = {
+    // colors
+    "bg-white": "background-color:#fff",
+    "bg-black": "background-color:#000",
+    "bg-transparent": "background-color:transparent",
+    // text
+    "text-white": "color:#fff",
+    "text-black": "color:#000",
+    "text-center": "text-align:center",
+    "text-left": "text-align:left",
+    "text-right": "text-align:right",
+    // display
+    flex: "display:flex",
+    "inline-flex": "display:inline-flex",
+    block: "display:block",
+    "inline-block": "display:inline-block",
+    hidden: "display:none",
+    // flex helpers
+    "items-center": "align-items:center",
+    "items-start": "align-items:flex-start",
+    "items-end": "align-items:flex-end",
+    "justify-center": "justify-content:center",
+    "justify-between": "justify-content:space-between",
+    "justify-end": "justify-content:flex-end",
+    "flex-col": "flex-direction:column",
+    "flex-row": "flex-direction:row",
+    "flex-1": "flex:1 1 0%",
+    "flex-wrap": "flex-wrap:wrap",
+    // sizing
+    "w-full": "width:100%",
+    "h-full": "height:100%",
+    "w-screen": "width:100vw",
+    "h-screen": "height:100vh",
+    "min-h-screen": "min-height:100vh",
+    // font
+    "font-bold": "font-weight:700",
+    "font-semibold": "font-weight:600",
+    "font-medium": "font-weight:500",
+    "font-normal": "font-weight:400",
+    // cursor
+    "cursor-pointer": "cursor:pointer",
+    // position
+    relative: "position:relative",
+    absolute: "position:absolute",
+    fixed: "position:fixed",
+    sticky: "position:sticky",
+    // overflow
+    "overflow-hidden": "overflow:hidden",
+    "overflow-auto": "overflow:auto",
+    // border radius
+    rounded: "border-radius:0.25rem",
+    "rounded-sm": "border-radius:0.125rem",
+    "rounded-md": "border-radius:0.375rem",
+    "rounded-lg": "border-radius:0.5rem",
+    "rounded-xl": "border-radius:0.75rem",
+    "rounded-2xl": "border-radius:1rem",
+    "rounded-full": "border-radius:9999px",
+    // transition
+    transition: "transition-property:color,background-color,border-color,outline-color,text-decoration-color,fill,stroke,opacity,box-shadow,transform,filter,backdrop-filter;transition-timing-function:cubic-bezier(.4,0,.2,1);transition-duration:150ms",
+  };
+  return classes
+    .trim()
+    .split(/\s+/)
+    .map((cls) => map[cls] ?? "")
+    .filter(Boolean)
+    .join(";");
+}
+
+function sanitizeCssForSandpack(css: string): string {
+  // Unwrap @layer blocks: remove the `@layer name {` opener and matching `}`
+  // while preserving the content inside.  We track brace depth per @layer line.
+  const lines = css.split("\n");
+  const output: string[] = [];
+  let layerDepth = 0;
+  let braceBalance = 0;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // ── PostCSS-only at-rule directives ──────────────────────────────────────
+    if (
+      /^@tailwind\b/.test(trimmed) ||
+      /^@import\s+["']tailwindcss["']/.test(trimmed) ||
+      /^@plugin\b/.test(trimmed) ||
+      /^@config\b/.test(trimmed)
+    ) {
+      output.push("");
+      continue;
+    }
+
+    // ── @apply: expand to raw CSS so the rule isn't silently empty ──────────
+    if (/^@apply\b/.test(trimmed)) {
+      const classes = trimmed.replace(/^@apply\s+/, "").replace(/;$/, "");
+      const raw = applyToRawCss(classes);
+      output.push(raw ? `  ${raw};` : "");
+      continue;
+    }
+
+    // ── @layer opener: track depth, emit blank so CSS stays valid ───────────
+    if (/^@layer\s+\w/.test(trimmed)) {
+      layerDepth++;
+      braceBalance = 0;
+      // Count opening braces on this line
+      braceBalance += (line.match(/\{/g) ?? []).length;
+      braceBalance -= (line.match(/\}/g) ?? []).length;
+      output.push(""); // consume the @layer header line itself
+      continue;
+    }
+
+    if (layerDepth > 0) {
+      const opens = (line.match(/\{/g) ?? []).length;
+      const closes = (line.match(/\}/g) ?? []).length;
+      braceBalance += opens - closes;
+
+      if (braceBalance < 0) {
+        // This is the closing `}` of the @layer block
+        layerDepth--;
+        braceBalance = 0;
+        output.push(""); // consume the closing brace
+        continue;
+      }
+      // Emit the content inside the @layer block without the wrapper
+      output.push(line);
+      continue;
+    }
+
+    output.push(line);
+  }
+
+  return output.join("\n").replace(/^\n+/, "");
+}
+
+/** The /public/index.html that Sandpack injects into the preview iframe.
+ *  Loads Tailwind CDN synchronously so classes are available before React mounts. */
+function buildPreviewIndexHtml(title: string): string {
+  const safe = title.replace(/[<>&"]/g, (c) =>
+    ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" })[c] ?? c
+  );
+  return `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${safe}</title>
+    <script>
+      /* Tailwind CDN config must be set BEFORE the script loads */
+      window.tailwind = { config: { darkMode: "class" } };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>html { color-scheme: light; }</style>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
+`;
+}
+
+/** Files that are for Vite/local dev only — they confuse the Sandpack bundler. */
+const VITE_ONLY_PATHS = new Set([
+  "/index.html",
+  "/vite.config.ts",
+  "/vite.config.js",
+  "/tsconfig.node.json",
+  "/tailwind.config.js",
+  "/tailwind.config.ts",
+  "/postcss.config.js",
+  "/postcss.config.ts",
+  "/.gitignore",
+  "/README.md",
+]);
+
+/**
+ * Same as projectToSandpackFiles but:
+ *   - filters out Vite-only config files that break Sandpack's bundler
+ *   - sanitizes every CSS file (strips unsupported PostCSS, expands @apply)
+ *   - injects a /public/index.html with Tailwind CDN pre-loaded
+ */
+export function projectToSandpackFilesWithPreviewReset(
+  project: GeneratedProject
+): Record<string, { code: string; hidden?: boolean; active?: boolean }> {
+  const files = projectToSandpackFiles(project);
+  const result: typeof files = {};
+
+  for (const [path, file] of Object.entries(files)) {
+    if (VITE_ONLY_PATHS.has(path)) continue;
+
+    if (path.endsWith(".css")) {
+      result[path] = {
+        ...file,
+        code: sanitizeCssForSandpack(file.code),
+      };
+    } else {
+      result[path] = file;
+    }
+  }
+
+  // Always provide a /public/index.html so CDN loads before React
+  const htmlCode = buildPreviewIndexHtml(project.title);
+  result["/public/index.html"] = {
+    code: htmlCode,
+    hidden: true,
+  };
+  result["/index.html"] = {
+    code: htmlCode,
+    hidden: true,
+  };
+
+  return result;
+}
+
 export const migrateLegacySession = (session: Partial<Session> & { currentCode?: unknown }): Session => {
   const messages = Array.isArray(session.messages)
     ? session.messages.map((message) => ({

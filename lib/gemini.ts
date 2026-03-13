@@ -21,7 +21,7 @@ const OUTPUT_CONTRACT = `
   }
 - Never invent tool results. Wait for the next tool result before deciding what to do next.
 - Use \`agent.create\` and \`agent.edit\` with full file contents in \`arguments.files\`.
-- Files must be keyed by absolute project paths like /src/components/Hero.tsx.
+- Files must be keyed by absolute project paths: /src/... for source, and /package.json, /index.html, /vite.config.ts, /tsconfig.json, /tsconfig.node.json, /tailwind.config.js, /postcss.config.js, /.gitignore, /README.md at project root for a runnable download (npm install && npm run dev).
 - Create as many files as needed. There is no file-count limit.
 - Default stack: React + TypeScript + react-router-dom.
 - Prefer reusable components and route-level pages.
