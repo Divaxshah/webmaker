@@ -268,7 +268,7 @@ export default function HomePage() {
         <div className="absolute top-0 right-0 w-full h-full bg-[radial-gradient(circle_at_top_right,var(--color-primary)_0%,transparent_50%)] opacity-20" />
         <div className="mx-auto max-w-[1400px] w-full min-w-0 relative z-10 flex flex-col items-center">
           <div className="text-center max-w-3xl mx-auto mb-12 sm:mb-20 px-2">
-            <h2 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold tracking-tighter mb-4 sm:mb-6 text-background dark:text-foreground">
+            <h2 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold tracking-tighter mb-4 sm:mb-6 text-background">
               Simple, <span className="italic font-serif font-light text-primary">transparent</span> pricing.
             </h2>
             <p className="text-base sm:text-lg md:text-xl text-background/70 dark:text-muted-foreground font-medium">

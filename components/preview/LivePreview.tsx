@@ -7,7 +7,7 @@ import type { RuntimeErrorState } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, AlertCircle } from "lucide-react";
 
-const PREVIEW_LOAD_TIMEOUT_MS = 20000;
+const PREVIEW_LOAD_TIMEOUT_MS = 140000; /* 2 min 20 sec (was 20s; +2 min so overlay doesn’t show while preview is still loading) */
 
 interface LivePreviewProps {
   onRuntimeError: (error: RuntimeErrorState) => void;
@@ -27,26 +27,36 @@ export function LivePreview({ onRuntimeError, onRetryFullRemount }: LivePreviewP
 
   return (
     <div
-      className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-[var(--wm-border)] bg-white dark:bg-zinc-900 p-1"
+      className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-none border border-[var(--wm-border)] bg-white dark:bg-zinc-900 p-1"
       style={{ height: "100%", minHeight: 0 }}
     >
-      <SandpackPreview
-        showNavigator={false}
-        showOpenInCodeSandbox={false}
-        showRefreshButton={false}
-        style={{
-          height: "100%",
-          minHeight: 0,
-          flex: 1,
-          borderRadius: 10,
-          overflow: "hidden",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      />
+      <style>{`
+        .live-preview-inner,
+        .live-preview-inner *,
+        .live-preview-inner *::before,
+        .live-preview-inner *::after {
+          border-radius: 0 !important;
+        }
+      `}</style>
+      <div className="live-preview-inner flex min-h-0 flex-1 overflow-hidden rounded-none" style={{ minHeight: 0 }}>
+        <SandpackPreview
+          showNavigator={false}
+          showOpenInCodeSandbox={false}
+          showRefreshButton={false}
+          style={{
+            height: "100%",
+            minHeight: 0,
+            flex: 1,
+            borderRadius: 0,
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        />
+      </div>
       {showTimeoutHint && onRetryFullRemount && (
         <div
-          className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 rounded-xl bg-background/95 p-6 text-center backdrop-blur-sm"
+          className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 rounded-none bg-background/95 p-6 text-center backdrop-blur-sm"
           aria-live="polite"
         >
           <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">

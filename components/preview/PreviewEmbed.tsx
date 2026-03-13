@@ -22,11 +22,12 @@ export function PreviewEmbed({ project }: PreviewEmbedProps) {
   );
 
   return (
-    <div className="preview-embed-wrapper" style={{ width: "100vw", height: "100vh" }}>
+    <div className="preview-embed-wrapper rounded-none" style={{ width: "100vw", height: "100vh" }}>
       <style>{`
         .preview-embed-wrapper,
         .preview-embed-wrapper .sp-wrapper,
         .preview-embed-wrapper .sp-layout,
+        .preview-embed-wrapper .sp-preview,
         .preview-embed-wrapper .sp-preview-container,
         .preview-embed-wrapper .sp-preview-iframe,
         .preview-embed-wrapper iframe {
@@ -37,6 +38,9 @@ export function PreviewEmbed({ project }: PreviewEmbedProps) {
           border-radius: 0 !important;
           margin: 0 !important;
           padding: 0 !important;
+        }
+        .preview-embed-wrapper [class*="sp-"] {
+          border-radius: 0 !important;
         }
       `}</style>
       <SandpackProvider

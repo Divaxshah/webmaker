@@ -157,7 +157,7 @@ export function PreviewPanel({
   if (isStarterProject) {
     if (isGenerating) {
       return (
-        <div className="flex h-full w-full items-center justify-center p-8 bg-card/30 backdrop-blur-xl rounded-[2.5rem] border-2 border-border overflow-hidden relative">
+        <div className="flex h-full w-full items-center justify-center p-8 bg-card/30 backdrop-blur-xl rounded-none border-2 border-border overflow-hidden relative">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent animate-pulse" />
           <motion.div 
             initial={{ opacity: 0, y: 10 }}
@@ -198,7 +198,7 @@ export function PreviewPanel({
     }
 
     return (
-      <div className="flex h-full w-full items-center justify-center p-8 bg-card/30 backdrop-blur-xl rounded-[2.5rem] border-2 border-border">
+      <div className="flex h-full w-full items-center justify-center p-8 bg-card/30 backdrop-blur-xl rounded-none border-2 border-border">
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -217,8 +217,8 @@ export function PreviewPanel({
   }
 
   return (
-    <section className="relative flex h-full min-h-0 flex-col bg-card/30 backdrop-blur-xl border-2 border-border rounded-[2.5rem]">
-      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[2.5rem]">
+    <section className="relative flex h-full min-h-0 flex-col bg-card/30 backdrop-blur-xl border-2 border-border rounded-none">
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-none">
       <div className="flex flex-wrap items-center justify-between gap-4 p-0 bg-background/50 backdrop-blur-md">
         <TabBar activeTab={activeTab} onChange={setActiveTab} />
         <div className="text-right px-4 py-2 flex gap-3 items-center">
@@ -274,19 +274,24 @@ export function PreviewPanel({
       <div className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 border-y border-amber-500/20 text-amber-700 dark:text-amber-400/90 text-xs">
         <AlertTriangle className="size-3.5 shrink-0 mt-0.5" />
         <p className="leading-snug">
-          Preview is in beta — you may see some text in the background. For the full experience, download the ZIP from the Code tab and run it locally.
+          Preview is in beta — you may see some text in the background. If you see a white screen or raw code, use the Refresh button above to reload. For the full experience, download the ZIP from the Code tab and run it locally.
         </p>
       </div>
 
-      <div className="relative flex min-h-0 flex-1 flex-col bg-background/50 preview-panel-wrapper">
+      <div className="relative flex min-h-0 flex-1 flex-col bg-background/50 preview-panel-wrapper rounded-none overflow-hidden">
         <style>{`
           .preview-panel-wrapper .sp-wrapper,
           .preview-panel-wrapper .sp-layout,
+          .preview-panel-wrapper .sp-preview,
           .preview-panel-wrapper .sp-preview-container,
           .preview-panel-wrapper .sp-preview-iframe,
           .preview-panel-wrapper iframe {
             height: 100% !important;
             width: 100% !important;
+            border-radius: 0 !important;
+          }
+          .preview-panel-wrapper [class*="sp-"] {
+            border-radius: 0 !important;
           }
         `}</style>
         <SandpackProvider
