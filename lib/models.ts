@@ -13,7 +13,7 @@ export const LUMINO_MODELS = [
 
 export type LuminoModelId = (typeof LUMINO_MODELS)[number]["id"];
 
-export const DEFAULT_LUMINO_MODEL: LuminoModelId = "gemini-3-flash-preview";
+export const DEFAULT_LUMINO_MODEL: LuminoModelId = "gemini-3.1-pro-preview";
 
 export const isLuminoModel = (value: string): value is LuminoModelId =>
   LUMINO_MODELS.some((model) => model.id === value);

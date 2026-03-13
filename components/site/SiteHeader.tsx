@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 const links = [
   { href: "/pricing", label: "Pricing" },
@@ -28,7 +27,9 @@ export function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-6">
-          <ThemeToggle />
+          <Link href="/auth" className="hidden md:inline-flex text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            Log in
+          </Link>
           <Link href="/studio" className="hidden md:inline-flex h-12 items-center justify-center rounded-full bg-foreground px-8 text-sm font-bold text-background transition-all hover:scale-105 active:scale-95 shadow-lg shadow-black/5 dark:shadow-white/5">
             Get Started
           </Link>

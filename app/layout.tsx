@@ -41,7 +41,7 @@ export default function RootLayout({
         var saved = window.localStorage.getItem("webmaker-theme");
         var theme = saved === "light" || saved === "dark"
           ? saved
-          : (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+          : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
         document.documentElement.dataset.theme = theme;
         if (theme === "dark") {
           document.documentElement.classList.add("dark");
@@ -49,14 +49,14 @@ export default function RootLayout({
           document.documentElement.classList.remove("dark");
         }
       } catch (error) {
-        document.documentElement.dataset.theme = "dark";
-        document.documentElement.classList.add("dark");
+        document.documentElement.dataset.theme = "light";
+        document.documentElement.classList.remove("dark");
       }
     })();
   `;
 
   return (
-    <html lang="en" className={cn("h-full dark", display.variable, body.variable, code.variable)} data-theme="dark" suppressHydrationWarning>
+    <html lang="en" className={cn("h-full", display.variable, body.variable, code.variable)} data-theme="light" suppressHydrationWarning>
       <body className="min-h-full font-sans antialiased bg-background text-foreground selection:bg-foreground selection:text-background">
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
         <TooltipProvider>

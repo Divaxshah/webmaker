@@ -1,88 +1,99 @@
-"use client";
-
-import { motion } from "framer-motion";
 import { MarketingShell } from "@/components/site/MarketingShell";
 
-const terms = [
-  {
-    title: "1. Acceptance of Terms",
-    body: "By accessing and using Webmaker Studio, you accept and agree to be bound by the terms and provision of this agreement. These terms apply to all visitors, users, and others who access the service."
-  },
-  {
-    title: "2. Nature of Generated Output",
-    body: "All generated projects, code snippets, styles, and UI components are provided as EDITABLE STARTING POINTS. They are explicitly NOT guaranteed to be production-ready, secure, or bug-free. The generated output must be thoroughly reviewed, tested, and audited by human developers for security vulnerabilities, accessibility compliance (WCAG), and functional correctness before deployment."
-  },
-  {
-    title: "3. Intellectual Property Rights",
-    body: "You retain all intellectual property rights, copyright, and ownership over the prompts you submit and the resulting frontend code output generated specifically for you during your session. Webmaker claims no copyright over the generated output."
-  },
-  {
-    title: "4. Disclaimer of Warranty",
-    body: "The service is provided strictly on an 'AS IS' and 'AS AVAILABLE' basis, without warranty of any kind. Webmaker expressly disclaims all warranties, whether express, implied, or statutory, including but not limited to the implied warranties of merchantability, fitness for a particular purpose, and non-infringement."
-  },
-  {
-    title: "5. Acceptable Use Policy",
-    body: "You agree NOT to use the service to generate malicious code, malware, phishing templates, interfaces designed to deceive end users (dark patterns), or any content that violates applicable laws. Violation results in immediate termination."
-  },
-  {
-    title: "6. Limitation of Liability",
-    body: "In no event shall Webmaker, its directors, employees, partners, or agents be liable for any indirect, incidental, special, consequential, or punitive damages, including without limitation, loss of profits, data, use, goodwill, or other intangible losses."
-  }
-];
-
-export default function TermsPage() {
+export default function TermsOfServicePage() {
   return (
     <MarketingShell>
-      <section className="px-6 py-20 lg:px-12 bg-background min-h-[calc(100vh-5rem)] relative overflow-hidden">
-        {/* Abstract Backgrounds */}
-        <div className="absolute top-[30%] left-[-10%] w-[50%] h-[50%] bg-accent/10 blur-[150px] rounded-full pointer-events-none -z-10" />
+      <div className="min-h-screen bg-background relative overflow-hidden font-sans pb-32">
+        {/* Decorative backgrounds */}
+        <div className="absolute top-[20%] right-[-10%] w-[40%] h-[30%] bg-primary/10 blur-[150px] rounded-full pointer-events-none -z-10" />
+        <div className="absolute top-[-10%] left-[-10%] w-[30%] h-[30%] bg-accent/10 blur-[150px] rounded-full pointer-events-none -z-10" />
 
-        <div className="mx-auto max-w-[1000px] relative z-10">
-          <motion.div 
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-            className="mb-16 border-b border-border/50 pb-12"
-          >
-            <h1 className="font-display text-5xl md:text-7xl font-black tracking-tight text-foreground mb-6 leading-[0.9]">
-              Terms of <br/><span className="text-accent italic font-serif font-light">Service.</span>
+        <div className="max-w-4xl mx-auto px-6 lg:px-12 pt-32 relative z-10">
+          <div className="mb-16">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-secondary text-muted-foreground text-sm font-bold uppercase tracking-widest mb-6">
+              Legal Information
+            </div>
+            <h1 className="font-display text-5xl md:text-7xl font-black tracking-tight mb-6 leading-[1.1]">
+              Terms of <span className="text-primary italic font-serif font-light">Service.</span>
             </h1>
-            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl leading-relaxed font-medium">
-              Rules, expectations, and liabilities regarding the generation, export, and deployment of frontend products via Webmaker.
+            <p className="text-xl text-muted-foreground font-medium border-l-4 border-primary pl-6 py-2">
+              Effective Date: March 13, 2026<br/>
+              Last Updated: March 13, 2026
             </p>
-          </motion.div>
-
-          <div className="grid gap-6">
-            {terms.map((term, idx) => (
-              <motion.div 
-                key={term.title}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.6, delay: idx * 0.05 }}
-                className="group rounded-3xl bg-card/40 backdrop-blur-md border border-white/5 flex flex-col md:flex-row overflow-hidden shadow-lg hover:shadow-xl hover:border-accent/30 transition-all"
-              >
-                <div className="p-8 md:w-[300px] bg-secondary/30 group-hover:bg-accent/10 transition-colors flex items-center">
-                  <h3 className="text-xl font-display tracking-tight font-bold leading-tight text-foreground group-hover:text-accent transition-colors">{term.title}</h3>
-                </div>
-                <div className="p-8 flex-1 bg-card/20">
-                  <p className="text-base text-muted-foreground leading-relaxed font-medium">{term.body}</p>
-                </div>
-              </motion.div>
-            ))}
           </div>
 
-          <motion.div 
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            className="mt-16 flex justify-between items-center text-[10px] uppercase font-bold text-muted-foreground/60 tracking-widest px-4"
-          >
-            <span>WM_TERMS_V2.0.4</span>
-            <span>Last Updated: March 12, 2026</span>
-          </motion.div>
+          <div className="prose prose-lg dark:prose-invert max-w-none prose-headings:font-display prose-headings:font-bold prose-h2:text-3xl prose-h2:mt-16 prose-h2:mb-6 prose-p:text-muted-foreground prose-p:leading-relaxed prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-li:text-muted-foreground">
+            <p className="text-xl font-medium text-foreground">
+              Welcome to Webmaker. By accessing or using our website, platform, APIs, and associated software (the "Services"), you agree to be bound by these Terms of Service (the "Terms"). If you do not agree to these Terms, you must not access or use the Services.
+            </p>
+            
+            <hr className="my-12 border-border/50" />
+
+            <h2>1. Acceptance of Terms</h2>
+            <p>
+              These Terms constitute a legally binding agreement between you (whether personally or on behalf of an entity) and Webmaker Inc. (&ldquo;Company,&rdquo; &ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;), concerning your access to and use of the Webmaker platform. We may modify these terms at any time; changes become effective upon posting.
+            </p>
+
+            <h2>2. Description of Service</h2>
+            <p>
+              Webmaker provides an AI-powered frontend generation engine that creates multi-file architectures, React code, and CSS schemas. We grant you a non-exclusive, non-transferable, revocable license to access the Services for your internal business or personal use, subject to these Terms.
+            </p>
+
+            <h2>3. Account Registration and Security</h2>
+            <p>
+              To access certain features of the Services, you must register for an account. You agree to provide accurate, current, and complete information and maintain the security of your password. You are solely responsible for all activities that occur under your account. Webmaker is not liable for any loss or damage arising from your failure to comply with this security obligation.
+            </p>
+
+            <h2>4. User Content and Generated Code</h2>
+            <p>
+              <strong>4.1 Your Prompts:</strong> You retain ownership of all intellectual property rights in the text prompts, images, or instructions ("User Content") you submit to the Services.
+            </p>
+            <p>
+              <strong>4.2 Generated Output:</strong> You own all right, title, and interest in and to the code and applications generated by Webmaker based on your User Content ("Generated Output"). Webmaker assigns to you any rights it may have in the Generated Output. You are solely responsible for the use, deployment, and security of the Generated Output.
+            </p>
+            <p>
+              <strong>4.3 License to Webmaker:</strong> You grant us a worldwide, royalty-free license to use, reproduce, and process your User Content solely as necessary to provide, maintain, and improve the Services. We do not use your private User Content or Generated Output to train generalized AI models.
+            </p>
+
+            <h2>5. Acceptable Use Policy</h2>
+            <p>
+              You agree not to use the Services to:
+            </p>
+            <ul>
+              <li>Generate malicious code, malware, viruses, or destructive artifacts.</li>
+              <li>Infringe upon the intellectual property rights of others, including attempting to reverse-engineer proprietary platforms.</li>
+              <li>Violate any applicable national or international laws and regulations.</li>
+              <li>Attempt to gain unauthorized access to our systems, APIs, or underlying infrastructure.</li>
+              <li>Engage in automated scraping or systematic retrieval of data without our express permission.</li>
+            </ul>
+
+            <h2>6. Subscriptions and Payments</h2>
+            <p>
+              Certain Services are provided on a paid subscription basis ("Paid Plans"). Fees for Paid Plans are billed in advance and are non-refundable, except as required by law. We reserve the right to change our pricing upon reasonable notice. Failure to pay may result in the suspension or termination of your account.
+            </p>
+
+            <h2>7. Disclaimer of Warranties</h2>
+            <p>
+              THE SERVICES AND GENERATED OUTPUT ARE PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED. WEBMAKER DOES NOT WARRANT THAT THE SERVICES WILL BE UNINTERRUPTED, ERROR-FREE, OR SECURE. THE AI GENERATION MAY PRODUCE INCOMPLETE, INACCURATE, OR INSECURE CODE. YOU ARE SOLELY RESPONSIBLE FOR REVIEWING, TESTING, AND SECURING ANY GENERATED OUTPUT BEFORE DEPLOYMENT.
+            </p>
+
+            <h2>8. Limitation of Liability</h2>
+            <p>
+              TO THE MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT SHALL WEBMAKER, ITS DIRECTORS, EMPLOYEES, OR AGENTS BE LIABLE FOR ANY INDIRECT, PUNITIVE, INCIDENTAL, SPECIAL, OR CONSEQUENTIAL DAMAGES ARISING OUT OF OR IN ANY WAY CONNECTED WITH THE USE OF THE SERVICES OR GENERATED OUTPUT.
+            </p>
+
+            <h2>9. Termination</h2>
+            <p>
+              We may terminate or suspend your account and access to the Services immediately, without prior notice or liability, for any reason whatsoever, including without limitation if you breach the Terms. Upon termination, your right to use the Services will immediately cease.
+            </p>
+
+            <h2>10. Governing Law</h2>
+            <p>
+              These Terms shall be governed and construed in accordance with the laws of the State of California, without regard to its conflict of law provisions. Any dispute arising from these Terms shall be resolved exclusively in the state or federal courts located in San Francisco County, California.
+            </p>
+          </div>
         </div>
-      </section>
+      </div>
     </MarketingShell>
   );
 }
