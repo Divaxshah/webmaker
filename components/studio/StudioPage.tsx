@@ -90,6 +90,7 @@ export function StudioPage() {
     <PreviewPanel
       project={project}
       runtimeError={runtimeError}
+      isGenerating={isGenerating}
       onDismissError={() => setRuntimeError(null)}
       onFixError={fixError}
       onShareError={() => {

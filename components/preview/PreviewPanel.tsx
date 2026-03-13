@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 interface PreviewPanelProps {
   project: GeneratedProject;
   runtimeError: RuntimeErrorState | null;
+  isGenerating?: boolean;
   onDismissError: () => void;
   onFixError: () => void;
   onRuntimeError: (error: RuntimeErrorState) => void;
@@ -54,6 +55,7 @@ const theme = {
 export function PreviewPanel({
   project,
   runtimeError,
+  isGenerating,
   onDismissError,
   onFixError,
   onRuntimeError,
@@ -85,7 +87,7 @@ export function PreviewPanel({
     [project]
   );
 
-  const isStarterProject = project.title === "New Workspace";
+  const isStarterProject = project.title === "New Workspace" || project.title === "Webmaker Starter";
 
   const [openingPreview, setOpeningPreview] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -99,7 +101,14 @@ export function PreviewPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ project }),
       });
-      const json = (await res.json()) as { url?: string };
+      const json = (await res.json()) as { id?: string; url?: string };
+      if (json.id) {
+        try {
+          window.localStorage.setItem(`wm-preview-${json.id}`, JSON.stringify(project));
+        } catch (e) {
+          console.warn("Could not save preview to localStorage", e);
+        }
+      }
       if (json.url) {
         setPreviewUrl(json.url);
         window.open(json.url, "_blank", "noopener,noreferrer");
@@ -119,7 +128,14 @@ export function PreviewPanel({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ project }),
         });
-        const json = (await res.json()) as { url?: string };
+        const json = (await res.json()) as { id?: string; url?: string };
+        if (json.id) {
+          try {
+            window.localStorage.setItem(`wm-preview-${json.id}`, JSON.stringify(project));
+          } catch (e) {
+            console.warn("Could not save preview to localStorage", e);
+          }
+        }
         if (json.url) {
           url = json.url;
           setPreviewUrl(json.url);
@@ -136,6 +152,48 @@ export function PreviewPanel({
   }, [project, previewUrl]);
 
   if (isStarterProject) {
+    if (isGenerating) {
+      return (
+        <div className="flex h-full w-full items-center justify-center p-8 bg-card/30 backdrop-blur-xl rounded-[2.5rem] border-2 border-border overflow-hidden relative">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent animate-pulse" />
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col items-center justify-center text-center max-w-md p-12 relative z-10"
+          >
+            <div className="relative mb-8">
+              <motion.div 
+                animate={{ rotate: 360 }}
+                transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+                className="absolute -inset-4 rounded-full border border-primary/30 border-dashed"
+              />
+              <motion.div 
+                animate={{ scale: [1, 1.1, 1] }}
+                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                className="w-20 h-20 bg-primary/20 text-primary flex items-center justify-center rounded-2xl rotate-3 backdrop-blur-sm border border-primary/30 shadow-[0_0_30px_rgba(234,88,12,0.2)]"
+              >
+                <Loader2 className="w-10 h-10 animate-spin" />
+              </motion.div>
+            </div>
+            <h2 className="font-display text-4xl tracking-tight font-bold text-foreground mb-4 leading-none">
+              Synthesizing <br/><span className="text-primary italic">Architecture...</span>
+            </h2>
+            <div className="space-y-3 mt-2 text-sm text-muted-foreground font-medium">
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.5 }}
+                className="flex items-center gap-2 justify-center"
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-primary animate-ping" />
+                Drafting components & styles
+              </motion.p>
+            </div>
+          </motion.div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex h-full w-full items-center justify-center p-8 bg-card/30 backdrop-blur-xl rounded-[2.5rem] border-2 border-border">
         <motion.div 
