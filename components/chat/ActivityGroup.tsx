@@ -121,7 +121,7 @@ export function ActivityGroup({
         </p>
       </div>
 
-      {/* Assistant: status, thinking trails, agent log, and final message */}
+      {/* Assistant: status, thinking trails, agent log (expandable), and final message */}
       {assistantMessage && (
         <div className="min-w-0 space-y-3 pl-4 overflow-hidden border-l-2 border-primary/30 bg-card/60 rounded-r-2xl py-2 pr-2">
           {assistantMessage.status === "thinking" && (
@@ -167,9 +167,10 @@ export function ActivityGroup({
                 )}
               </div>
 
+              {/* Expandable Agent Log (stream/snapshot) — show only when user expands */}
               {(assistantMessage.status === "writing" ||
                 (assistantMessage.codeSnapshot && (assistantMessage.status === "done" || assistantMessage.status === "cancelled"))) && (
-                <div>
+                <div className="[&_pre]:rounded-none">
                   <button
                     type="button"
                     onClick={() => setShowSnippet((prev) => !prev)}
@@ -180,7 +181,8 @@ export function ActivityGroup({
                   {showSnippet && (
                     <pre
                       ref={snippetRef}
-                      className="mt-3 p-4 rounded-xl bg-card border border-border max-h-48 overflow-y-auto font-mono text-[10px] leading-relaxed text-muted-foreground"
+                      className="mt-3 p-4 bg-card border border-border max-h-48 overflow-y-auto font-mono text-[10px] leading-relaxed text-muted-foreground"
+                      style={{ borderRadius: 0 }}
                     >
                       {streamingText || assistantMessage.codeSnapshot?.slice(-240)}
                     </pre>

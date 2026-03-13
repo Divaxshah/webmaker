@@ -39,21 +39,21 @@
     }
   },
   "agent.read": {
-    "description": "Read specific files before editing them.",
+    "description": "Read specific files for editing context. Pass at most 2–3 paths per call; call again for the next batch.",
     "parameters": {
       "type": "object",
       "properties": {
         "targets": {
           "type": "array",
           "items": { "type": "string" },
-          "description": "Absolute project paths to read."
+          "description": "Absolute project paths to read (max 2–3 per call)."
         }
       },
       "required": ["targets"]
     }
   },
   "agent.create": {
-    "description": "Create one or more new frontend files.",
+    "description": "Create new frontend files. Pass at most 2–3 files per call; call again for the next batch.",
     "parameters": {
       "type": "object",
       "properties": {
@@ -63,7 +63,7 @@
         },
         "files": {
           "type": "object",
-          "description": "Map of absolute project paths to full file contents. MUST be an object. Example: { \"/src/App.tsx\": { \"code\": \"import React...\" } }"
+          "description": "Map of absolute project paths to full file contents (max 2–3 entries). Example: { \"/src/App.tsx\": { \"code\": \"import React...\" } }"
         },
         "targets": {
           "type": "array",
@@ -75,7 +75,7 @@
     }
   },
   "agent.edit": {
-    "description": "Update one or more existing frontend files.",
+    "description": "Update one existing frontend file. One file per call; call agent.edit again for each additional file.",
     "parameters": {
       "type": "object",
       "properties": {
@@ -85,12 +85,12 @@
         },
         "files": {
           "type": "object",
-          "description": "Map of absolute project paths to full file contents. MUST be an object. Example: { \"/src/App.tsx\": { \"code\": \"import React...\" } }"
+          "description": "Map of one absolute path to full file contents. Example: { \"/src/App.tsx\": { \"code\": \"...\" } }"
         },
         "targets": {
           "type": "array",
           "items": { "type": "string" },
-          "description": "Optional path list matching the written files."
+          "description": "Optional path list matching the written file."
         }
       },
       "required": ["intent", "files"]
@@ -114,14 +114,14 @@
     }
   },
   "agent.delete": {
-    "description": "Delete obsolete files from the project.",
+    "description": "Delete one obsolete file. One path per call; call again for each additional file.",
     "parameters": {
       "type": "object",
       "properties": {
         "targets": {
           "type": "array",
           "items": { "type": "string" },
-          "description": "Absolute project paths to remove."
+          "description": "Exactly one absolute project path to remove."
         }
       },
       "required": ["targets"]

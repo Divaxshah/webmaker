@@ -58,7 +58,10 @@ interface VerificationResult {
 
 const MAX_AGENT_STEPS = 24;
 const MAX_SEARCH_RESULTS = 36;
-const MAX_READ_FILES = 12;
+const MAX_READ_FILES = 3;
+const MAX_CREATE_FILES = 3;
+const MAX_EDIT_FILES = 1;
+const MAX_DELETE_FILES = 1;
 const TOOL_NAMES: AgentToolName[] = [
   "agent.plan",
   "agent.inspect",
@@ -713,13 +716,14 @@ export const runAgentLoop = async ({
       }
 
       case "agent.read": {
-        const targets = normalizeStringArray(toolCall.arguments?.targets)
-          .map((target) => normalizeProjectPath(target))
-          .slice(0, MAX_READ_FILES);
-
-        if (targets.length === 0) {
+        const rawTargets = normalizeStringArray(toolCall.arguments?.targets).map(
+          (target) => normalizeProjectPath(target)
+        );
+        if (rawTargets.length === 0) {
           throw new Error("agent.read requires at least one file target.");
         }
+        const targets = rawTargets.slice(0, MAX_READ_FILES);
+        const overLimit = rawTargets.length > MAX_READ_FILES;
 
         toolResult = {
           files: Object.fromEntries(
@@ -728,6 +732,9 @@ export const runAgentLoop = async ({
               .map((target) => [target, project.files[target].code])
           ),
           missing: targets.filter((target) => !project.files[target]),
+          ...(overLimit && {
+            batchHint: `Only first ${MAX_READ_FILES} files returned. Call agent.read again with the next batch of paths (max ${MAX_READ_FILES} per call).`,
+          }),
         };
         completedDetail = `Read ${targets.length} file${
           targets.length === 1 ? "" : "s"
@@ -737,11 +744,15 @@ export const runAgentLoop = async ({
 
       case "agent.create":
       case "agent.edit": {
-        const writes = normalizeFilePayload(toolCall.arguments?.files);
+        const rawWrites = normalizeFilePayload(toolCall.arguments?.files);
 
-        if (writes.length === 0) {
+        if (rawWrites.length === 0) {
           throw new Error(`${toolCall.tool} requires a non-empty files map. Ensure "arguments.files" is an object mapping absolute file paths to { code: string } or to string contents. Arrays are not accepted.`);
         }
+
+        const maxFiles = toolCall.tool === "agent.create" ? MAX_CREATE_FILES : MAX_EDIT_FILES;
+        const writes = rawWrites.slice(0, maxFiles);
+        const overLimit = rawWrites.length > maxFiles;
 
         const nextFiles = { ...project.files };
         const created: string[] = [];
@@ -776,6 +787,12 @@ export const runAgentLoop = async ({
             typeof toolCall.arguments?.intent === "string"
               ? toolCall.arguments.intent
               : undefined,
+          ...(overLimit && {
+            batchHint:
+              toolCall.tool === "agent.create"
+                ? `Only first ${MAX_CREATE_FILES} files written. Call agent.create again for the next batch (max ${MAX_CREATE_FILES} per call).`
+                : `Only first file written. Call agent.edit once per file (max ${MAX_EDIT_FILES} per call).`,
+          }),
         };
         completedDetail = `Wrote ${writes.length} file${
           writes.length === 1 ? "" : "s"
@@ -822,13 +839,16 @@ export const runAgentLoop = async ({
       }
 
       case "agent.delete": {
-        const targets = normalizeStringArray(toolCall.arguments?.targets).map(
+        const rawTargets = normalizeStringArray(toolCall.arguments?.targets).map(
           (target) => normalizeProjectPath(target)
         );
 
-        if (targets.length === 0) {
+        if (rawTargets.length === 0) {
           throw new Error("agent.delete requires at least one target path.");
         }
+
+        const targets = rawTargets.slice(0, MAX_DELETE_FILES);
+        const overLimit = rawTargets.length > MAX_DELETE_FILES;
 
         const nextFiles = { ...project.files };
         const deleted: string[] = [];
@@ -850,7 +870,13 @@ export const runAgentLoop = async ({
         });
 
         verifiedSignature = null;
-        toolResult = { deleted, missing };
+        toolResult = {
+          deleted,
+          missing,
+          ...(overLimit && {
+            batchHint: `Only first file deleted. Call agent.delete once per file (max ${MAX_DELETE_FILES} per call).`,
+          }),
+        };
         completedDetail = `Deleted ${deleted.length} file${
           deleted.length === 1 ? "" : "s"
         } from the project.`;
