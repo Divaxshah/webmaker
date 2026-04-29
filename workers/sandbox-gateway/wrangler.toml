@@ -1,0 +1,20 @@
+name = "webmaker-sandbox-gateway"
+main = "src/index.ts"
+compatibility_date = "2026-04-28"
+compatibility_flags = ["nodejs_compat"]
+
+[[containers]]
+class_name = "Sandbox"
+image = "./Dockerfile"
+
+[[durable_objects.bindings]]
+class_name = "Sandbox"
+name = "Sandbox"
+
+[[migrations]]
+tag = "webmaker-sandbox-v1"
+new_sqlite_classes = ["Sandbox"]
+
+[vars]
+# Public hostname for exposePort() preview URLs (wildcard DNS → this Worker). Set per environment.
+SANDBOX_PREVIEW_HOSTNAME = "localhost"

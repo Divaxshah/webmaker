@@ -1,0 +1,197 @@
+{
+  "agent.plan": {
+    "description": "Break the request into a concrete frontend implementation plan.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "goal": {
+          "type": "string",
+          "description": "Short description of the build goal."
+        }
+      },
+      "required": ["goal"]
+    }
+  },
+  "agent.inspect": {
+    "description": "Inspect the current project tree or a specific set of files.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "targets": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Optional absolute project paths to inspect."
+        }
+      }
+    }
+  },
+  "agent.search": {
+    "description": "Search filenames and file contents for a query.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "Text to search for across the current project."
+        }
+      },
+      "required": ["query"]
+    }
+  },
+  "agent.read": {
+    "description": "Read specific files for editing context. Pass at most 2–3 paths per call; call again for the next batch.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "targets": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Absolute project paths to read (max 2–3 per call)."
+        }
+      },
+      "required": ["targets"]
+    }
+  },
+  "agent.create": {
+    "description": "Create new frontend files. Pass at most 2–3 files per call; call again for the next batch.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "intent": {
+          "type": "string",
+          "description": "Short reason for the new files."
+        },
+        "files": {
+          "type": "object",
+          "description": "Map of absolute project paths to full file contents (max 2–3 entries). Example: { \"/src/App.tsx\": { \"code\": \"import React...\" } }"
+        },
+        "targets": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Optional path list matching the written files."
+        }
+      },
+      "required": ["intent", "files"]
+    }
+  },
+  "agent.edit": {
+    "description": "Update one existing frontend file. One file per call; call agent.edit again for each additional file.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "intent": {
+          "type": "string",
+          "description": "Short reason for the edits."
+        },
+        "files": {
+          "type": "object",
+          "description": "Map of one absolute path to full file contents. Example: { \"/src/App.tsx\": { \"code\": \"...\" } }"
+        },
+        "targets": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Optional path list matching the written file."
+        }
+      },
+      "required": ["intent", "files"]
+    }
+  },
+  "agent.patch": {
+    "description": "Apply a targeted search-and-replace to one existing file (first occurrence, or all when replaceAll is true).",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Absolute project path to the file."
+        },
+        "search": {
+          "type": "string",
+          "description": "Exact substring to find (must appear at least once)."
+        },
+        "replace": {
+          "type": "string",
+          "description": "Replacement text (may be empty)."
+        },
+        "replaceAll": {
+          "type": "boolean",
+          "description": "Replace every occurrence instead of only the first."
+        }
+      },
+      "required": ["path", "search"]
+    }
+  },
+  "agent.rename": {
+    "description": "Rename a file without changing its contents.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "string",
+          "description": "Existing absolute project path."
+        },
+        "to": {
+          "type": "string",
+          "description": "New absolute project path."
+        }
+      },
+      "required": ["from", "to"]
+    }
+  },
+  "agent.delete": {
+    "description": "Delete one obsolete file. One path per call; call again for each additional file.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "targets": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Exactly one absolute project path to remove."
+        }
+      },
+      "required": ["targets"]
+    }
+  },
+  "agent.verify": {
+    "description": "Run local consistency checks before finishing. Optionally run npm run build inside the Cloudflare Sandbox when sandboxBuild is true or checks includes \"sandbox build\".",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "checks": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Optional named checks such as entry exists or imports resolve."
+        },
+        "sandboxBuild": {
+          "type": "boolean",
+          "description": "When true (and the Studio session uses a sandbox), sync files and run npm run build in the remote sandbox; stderr/stdout are returned in the tool result."
+        }
+      }
+    }
+  },
+  "agent.complete": {
+    "description": "Finish the request and commit final project metadata.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "summary": {
+          "type": "string",
+          "description": "Short summary of what was created or updated."
+        },
+        "title": {
+          "type": "string",
+          "description": "Final project title."
+        },
+        "entry": {
+          "type": "string",
+          "description": "Absolute path to the final entry file."
+        },
+        "dependencies": {
+          "type": "object",
+          "description": "Dependency map to merge into the project."
+        }
+      },
+      "required": ["summary"]
+    }
+  }
+}
