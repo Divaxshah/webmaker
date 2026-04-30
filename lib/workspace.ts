@@ -10,8 +10,11 @@ import type {
   SkillReference,
   WorkspaceSnapshot,
 } from "@/lib/types";
-import { getRuntimeConfig } from "@/lib/runtime-config";
-
+import {
+  getRuntimeProviderLabel,
+  type RuntimeProviderMode,
+  type SelectableRuntimeProviderMode,
+} from "@/lib/runtime-config";
 const DEFAULT_WORKSPACE_ROOT = "/workspace";
 
 export const BUILTIN_SKILLS: SkillReference[] = [
@@ -19,24 +22,22 @@ export const BUILTIN_SKILLS: SkillReference[] = [
     id: "frontend-design",
     title: "Frontend Design",
     category: "design",
-    summary: "Pushes the agent toward stronger layout, typography, color, and motion decisions.",
+    summary:
+      "Distinctive, production-grade interfaces; bold aesthetic direction; aligned with `.agents/skills/frontend-design`.",
     source: "builtin",
   },
   {
-    id: "responsive-hardening",
-    title: "Responsive Hardening",
-    category: "quality",
-    summary: "Guides the agent toward more resilient mobile, tablet, and desktop layouts.",
-    source: "builtin",
-  },
-  {
-    id: "runtime-error-fixer",
-    title: "Runtime Error Fixer",
-    category: "debugging",
-    summary: "Focuses the agent on repairing import, compile, and runtime issues.",
+    id: "ui-ux-pro-max",
+    title: "UI/UX Pro Max",
+    category: "design",
+    summary:
+      "UI/UX intelligence (a11y, layout, motion, forms, charts…); aligned with `.agents/skills/ui-ux-pro-max`.",
     source: "builtin",
   },
 ];
+
+/** Skill IDs enabled by default in new Studio sessions; also used when rehydrating if `activeSkillIds` was never saved. */
+export const DEFAULT_ACTIVE_SKILL_IDS: string[] = BUILTIN_SKILLS.map((s) => s.id);
 
 const cloneProjectFile = (file: ProjectFile): ProjectFile => ({
   code: file.code,
@@ -98,14 +99,11 @@ export const createWorkspaceSnapshot = (
   id: workspaceId,
   project: ensureWorkspaceProjectIntegrity(project ?? createStarterProject()),
   runtime: {
-    provider: getRuntimeConfig().defaultProvider,
+    provider: "local",
     status: "idle",
     rootPath: DEFAULT_WORKSPACE_ROOT,
     workspaceId,
-    providerLabel:
-      getRuntimeConfig().defaultProvider === "sandbox"
-        ? "Cloudflare Sandbox"
-        : "Virtual Workspace",
+    providerLabel: getRuntimeProviderLabel("local"),
     preview: {
       status: "idle",
     },
@@ -118,6 +116,74 @@ export const workspaceFromProject = (
   workspaceId?: string
 ): WorkspaceSnapshot =>
   createWorkspaceSnapshot(project, workspaceId ?? generateWorkspaceId());
+
+/** Normalize persisted sessions onto supported runtime providers. */
+export const coerceWorkspaceToSupportedProvider = (
+  workspace: WorkspaceSnapshot
+): WorkspaceSnapshot => {
+  const legacyProvider = workspace.runtime as { provider?: string };
+  const provider: RuntimeProviderMode =
+    legacyProvider.provider === "cloudflare-sandbox"
+      ? "cloudflare-sandbox"
+      : legacyProvider.provider === "local"
+        ? "local"
+        : "local";
+
+  if (
+    workspace.runtime.provider === provider &&
+    workspace.runtime.providerLabel === getRuntimeProviderLabel(provider)
+  ) {
+    return workspace;
+  }
+
+  return {
+    ...workspace,
+    runtime: {
+      ...workspace.runtime,
+      provider,
+      providerLabel: getRuntimeProviderLabel(provider),
+      status: "idle",
+      preview: { status: "idle" },
+      providerMeta:
+        provider === "cloudflare-sandbox"
+          ? { mode: "cloudflare-sandbox" }
+          : { mode: "local" },
+      lastCommand: undefined,
+      lastOutput: undefined,
+      lastError: undefined,
+    },
+  };
+};
+
+export const setWorkspaceRuntimeProvider = (
+  workspace: WorkspaceSnapshot,
+  provider: SelectableRuntimeProviderMode
+): WorkspaceSnapshot => ({
+  ...workspace,
+  runtime: {
+    ...workspace.runtime,
+    provider,
+    providerLabel: getRuntimeProviderLabel(provider),
+    status: "idle",
+    lastCommand: undefined,
+    lastOutput: undefined,
+    lastError: undefined,
+    lastProcessId: undefined,
+    providerMeta:
+      provider === "cloudflare-sandbox"
+        ? {
+            mode: "cloudflare-sandbox",
+            transport: "sdk",
+          }
+        : {
+            mode: "local",
+          },
+    preview: {
+      status: "idle",
+    },
+  },
+  updatedAt: new Date().toISOString(),
+});
 
 export const syncProjectToWorkspace = (
   workspace: WorkspaceSnapshot,

@@ -3,6 +3,7 @@
 # dependencies
 /node_modules
 workers/sandbox-gateway/node_modules
+.webmaker/
 /.pnp
 .pnp.*
 .yarn/*

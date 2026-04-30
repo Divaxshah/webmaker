@@ -1,50 +1,31 @@
+import "server-only";
+
+import { loadSkillFileRecords } from "@/lib/skill-files";
 import type { SkillReference } from "@/lib/types";
 
+/** Offline fallback only; primary Markdown lives in repo folder skills/ (mirror .agents/skills). */
 const FALLBACK_SKILLS: Array<SkillReference & { instruction: string }> = [
   {
     id: "frontend-design",
     title: "Frontend Design",
     category: "design",
     summary:
-      "Pushes the agent toward stronger layout, typography, color, and motion decisions.",
+      "Distinctive, production-grade interfaces; bold aesthetic direction; typography, color, motion, composition - never generic AI polish.",
     source: "builtin",
-    tags: ["design", "ui", "brand"],
-    instruction: `
-Use a strong visual point of view.
-- Choose a distinct aesthetic direction before editing files.
-- Avoid generic layouts, timid palettes, and default-feeling typography.
-- Prefer expressive typography, intentional composition, and meaningful motion.
-`.trim(),
+    tags: ["design", "ui", "frontend", "aesthetics"],
+    instruction:
+      "Follow the full Frontend Design skill: commit to a bold aesthetic direction before coding; typography/color/motion/spatial composition/backgrounds at production quality; avoid generic fonts (Inter, Arial), purple-gradient cliches, and cookie-cutter layouts. Match implementation complexity to the vision (maximalist vs minimal).",
   },
   {
-    id: "responsive-hardening",
-    title: "Responsive Hardening",
-    category: "quality",
+    id: "ui-ux-pro-max",
+    title: "UI/UX Pro Max",
+    category: "design",
     summary:
-      "Guides the agent toward more resilient mobile, tablet, and desktop layouts.",
+      "UI/UX intelligence: accessibility, touch, performance, style, responsive layout, typography/color systems, animation, forms, navigation, charts - see priority table in skill.",
     source: "builtin",
-    tags: ["responsive", "mobile", "layout"],
-    instruction: `
-Prioritize responsive resilience.
-- Ensure layouts work cleanly on mobile, tablet, and desktop.
-- Avoid overflow traps, cramped spacing, and brittle fixed-width sections.
-- Prefer flexible grids, adaptive spacing, and safe text wrapping.
-`.trim(),
-  },
-  {
-    id: "runtime-error-fixer",
-    title: "Runtime Error Fixer",
-    category: "debugging",
-    summary:
-      "Focuses the agent on repairing import, compile, and runtime issues.",
-    source: "builtin",
-    tags: ["debugging", "runtime", "repair"],
-    instruction: `
-Focus on dependable repair.
-- Read tool errors carefully before editing.
-- Fix root causes, not surface symptoms.
-- Verify imports, dependencies, and entry wiring before completion.
-`.trim(),
+    tags: ["ui", "ux", "accessibility", "design"],
+    instruction:
+      "Follow UI/UX Pro Max when changing how UI looks, feels, moves, or is interacted with. Prioritize: accessibility, touch and interaction, performance, style selection, layout and responsive design, typography and color, animation, forms and feedback, navigation, charts. Apply structured UX checks; prefer semantic tokens, SVG icons over emoji, mobile-first breakpoints, visible focus, loading feedback, and meaningful motion.",
   },
 ];
 
@@ -66,13 +47,13 @@ const buildPromptSectionFromRecords = (
   const resolved = skillIds
     .map((skillId) => records.find((skill) => skill.id === skillId))
     .filter((value): value is SkillReference & { instruction: string } => Boolean(value))
-    .map((skill) => `Skill: ${skill.title}\n${skill.instruction}`);
+    .map((skill) => "Skill: " + skill.title + "\n" + skill.instruction);
 
   if (resolved.length === 0) {
     return "";
   }
 
-  return `Active skills:\n\n${resolved.join("\n\n")}`;
+  return "Active skills:\n\n" + resolved.join("\n\n");
 };
 
 export const getBuiltinSkills = (): SkillReference[] =>
@@ -85,12 +66,7 @@ export const getSkillInstruction = (skillId: string): string | null =>
   FALLBACK_SKILLS.find((skill) => skill.id === skillId)?.instruction ?? null;
 
 export const listAvailableSkills = async (): Promise<SkillReference[]> => {
-  if (typeof window !== "undefined") {
-    return getBuiltinSkills();
-  }
-
   try {
-    const { loadSkillFileRecords } = await import("@/lib/skill-files");
     const fileSkills = await loadSkillFileRecords();
 
     if (fileSkills.length > 0) {
@@ -110,12 +86,7 @@ export const buildSkillPromptSection = async (
     return "";
   }
 
-  if (typeof window !== "undefined") {
-    return buildPromptSectionFromRecords(FALLBACK_SKILLS, skillIds);
-  }
-
   try {
-    const { loadSkillFileRecords } = await import("@/lib/skill-files");
     const fileSkills = await loadSkillFileRecords();
 
     if (fileSkills.length > 0) {

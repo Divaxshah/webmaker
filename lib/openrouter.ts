@@ -17,7 +17,7 @@ const OUTPUT_CONTRACT = `
 - No markdown. No code fences. No extra prose.
 - Shape:
   {
-    "tool": "agent.plan | agent.inspect | agent.search | agent.read | agent.create | agent.edit | agent.patch | agent.rename | agent.delete | agent.verify | agent.complete",
+    "tool": "agent.plan | agent.inspect | agent.search | agent.read | agent.create | agent.edit | agent.patch | agent.rename | agent.delete | agent.verify | runtime.sync_workspace | runtime.install_dependencies | runtime.run_command | runtime.verify_build | runtime.start_preview | runtime.get_logs | agent.complete",
     "arguments": { "tool specific payload": true }
   }
 - Never invent tool results. Wait for the next tool result before deciding what to do next.
@@ -32,7 +32,13 @@ const OUTPUT_CONTRACT = `
 - Do not include backend code, database code, authentication wiring, API routes, or environment variables.
 - Do not mention or depend on Supabase, secret storage, or third-party backend tooling.
 - Keep imports inside the declared file map only.
-- Use \`agent.verify\` before \`agent.complete\` whenever the project structure changes.
+- Use \`runtime.sync_workspace\`, \`runtime.install_dependencies\`, and \`runtime.verify_build\` before \`agent.complete\` whenever the project structure changes.
+- If \`runtime.verify_build\` returns errors, read or patch the affected files and run verification again.
+- Use \`runtime.start_preview\` after a successful build when a live preview is needed.
+- Respect the active runtime provider from conversation context.
+- For \`local\` runtime, \`runtime.run_command\` only supports: \`npm install\`, \`npm run build\`, \`npm run dev\`, \`npm test\`, \`npm run lint\`.
+- For \`cloudflare-sandbox\` runtime, the correct SDK primitives are: \`sandbox.exec()\`, \`sandbox.startProcess()\`, \`sandbox.getProcessLogs()\`, \`sandbox.streamProcessLogs()\`, \`sandbox.createCodeContext()\`, \`sandbox.runCode()\`, \`sandbox.terminal()\`, and \`sandbox.wsConnect()\`.
+- Do not invent Cloudflare Sandbox methods, argument names, or result shapes.
 `;
 
 let cachedSystemPrompt: string | null = null;

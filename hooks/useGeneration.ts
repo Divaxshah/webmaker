@@ -3,8 +3,7 @@
 import { useCallback, useRef } from "react";
 import { buildFallbackActivities, type GenerationStreamEvent } from "@/lib/agent";
 import { createId } from "@/lib/utils";
-import type { GeneratedProject, Message, WorkspaceSnapshot } from "@/lib/types";
-import { syncProjectToWorkspace } from "@/lib/workspace";
+import type { GeneratedProject, Message } from "@/lib/types";
 import {
   getActiveSession,
   getActiveSessionMessages,
@@ -103,31 +102,6 @@ export const useGeneration = () => {
         const abortController = new AbortController();
         abortControllerRef.current = abortController;
 
-        const syncSandboxIfNeeded = async (projectForSync: GeneratedProject) => {
-          const st = useAppStore.getState();
-          const sess = getActiveSession(st);
-          if (!sess?.workspace || sess.workspace.runtime.provider !== "sandbox") {
-            return;
-          }
-          const merged = syncProjectToWorkspace(sess.workspace, projectForSync);
-          try {
-            const res = await fetch("/api/runtime", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ action: "sync_workspace", workspace: merged }),
-            });
-            if (!res.ok) {
-              return;
-            }
-            const json = (await res.json()) as { workspace?: WorkspaceSnapshot };
-            if (json.workspace) {
-              st.setWorkspaceSnapshot(json.workspace, activeSession.id);
-            }
-          } catch {
-            /* offline or gateway down */
-          }
-        };
-
         const response = await fetch("/api/generate", {
           method: "POST",
           headers: {
@@ -225,7 +199,6 @@ export const useGeneration = () => {
               useAppStore.getState().setCurrentProject(event.project, activeSession.id);
               finalTokenCount = event.tokenCount;
               finalSummary = event.summary;
-              void syncSandboxIfNeeded(event.project);
               continue;
             }
 

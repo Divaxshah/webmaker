@@ -78,8 +78,6 @@ Your gateway should translate Webmaker runtime actions to Cloudflare Sandbox SDK
 
 ### What you still need to do
 
-0. **Docker**: Install [Docker Engine](https://docs.docker.com/engine/install/) (or Docker Desktop) and ensure **`docker info` succeeds without sudo**. Wrangler builds the Sandbox container image from `workers/sandbox-gateway/Dockerfile` during deploy; otherwise you see *“The Docker CLI could not be launched”*. On Linux, if `docker info` says **permission denied** on `unix:///var/run/docker.sock`, add your user to the `docker` group: `sudo usermod -aG docker $USER`, then **log out and back in** (or run `newgrp docker` in the shell you use for deploy). Podman/colima users can try `WRANGLER_DOCKER_BIN` and `DOCKER_HOST` per Wrangler’s message.
-
 1. Install worker dependencies:
 
 ```bash
@@ -158,52 +156,5 @@ If steps 5-7 fail, Cloudflare is still not connected correctly.
 | `cloudflare-sandbox` selected but runtime says gateway is missing | Set `CLOUDFLARE_SANDBOX_GATEWAY_URL` in the Next.js app |
 | gateway returns 401 | `CLOUDFLARE_SANDBOX_GATEWAY_TOKEN` does not match worker secret `GATEWAY_TOKEN` |
 | preview start fails on Cloudflare | `SANDBOX_PREVIEW_HOSTNAME` is missing or wildcard DNS/custom domain is not configured |
-| `wrangler deploy` — Docker CLI could not be launched | Same machine must run a reachable Docker daemon and `docker info` must succeed (see §3 step 0). Common causes: daemon stopped (`sudo systemctl start docker`), or **socket permission denied** — add user to `docker` group and re-login. |
-| `docker info` → permission denied on `docker.sock` | `sudo usermod -aG docker $USER`, then log out/in or `newgrp docker`; verify `docker info` before deploying. |
-| Warning: `node:path/posix` / enable nodejs_compat | Already set in `workers/sandbox-gateway/wrangler.jsonc` via `compatibility_flags`; redeploy after pulling latest. |
 
-################################################################################################################################################
 Local/browser preview still works without Cloudflare. Cloudflare Sandbox only becomes active after the gateway pieces above are added and deployed.
-
-
-  What you need to do now:
-
-  1. Install worker deps:
-
-  npm install --prefix workers/sandbox-gateway
-
-  2. Log into Cloudflare:
-
-  npx wrangler login
-
-  3. Set the worker secret:
-
-  cd workers/sandbox-gateway
-  npx wrangler secret put GATEWAY_TOKEN
-
-  4. Set SANDBOX_PREVIEW_HOSTNAME in workers/sandbox-gateway/wrangler.jsonc or with Wrangler vars to your custom wildcard-capable domain. Cloudflare preview URLs will
-     not work correctly on plain workers.dev.
-  5. Deploy the worker:
-
-  cd /media/avinyaa/4ad5a4e0-4ac1-480f-90c1-386d861b6f342/webmaker
-  npm run sandbox-gateway:deploy
-
-  6. Put these in your app env:
-
-  CLOUDFLARE_SANDBOX_GATEWAY_URL=https://your-worker-domain.example.com
-  CLOUDFLARE_SANDBOX_GATEWAY_TOKEN=the-same-token
-
-  7. Restart the Next.js app.
-  8. Verify:
-
-  - GET <worker-url>/health
-  - GET http://localhost:3000/api/health
-  - in Studio, choose cloudflare-sandbox, hit refresh, then run a runtime action
-
-  One important constraint remains: Cloudflare preview exposure needs a custom domain with wildcard DNS for sandbox.exposePort(). Command execution and build/install
-  flows can work without that, but preview URLs need that domain setup.
-
- 
-› Explain this codebase
- 
-  codex resume 019dd875-1d63-7bc1-aff2-54636699eabf

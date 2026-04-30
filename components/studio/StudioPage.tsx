@@ -12,7 +12,7 @@ import { ResizablePanel } from "@/components/ui/ResizablePanel";
 import { useGeneration } from "@/hooks/useGeneration";
 import { useDashboardSessionSync } from "@/hooks/useDashboardSessionSync";
 import type { LuminoModelId } from "@/lib/models";
-import type { RuntimeAction } from "@/lib/runtime-service";
+import type { SelectableRuntimeProviderMode } from "@/lib/runtime-config";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import {
   getActiveSession,
@@ -24,8 +24,12 @@ import {
 } from "@/lib/store";
 import type { SkillReference } from "@/lib/types";
 import { createId } from "@/lib/utils";
+import { setWorkspaceRuntimeProvider } from "@/lib/workspace";
 
 type MobileTab = "chat" | "workspace";
+
+/** Dedupe initial runtime status when React Strict Mode mounts twice (dev). */
+const runtimeStatusFetchedSessions = new Set<string>();
 
 export function StudioPage() {
   useDashboardSessionSync(true);
@@ -91,7 +95,10 @@ export function StudioPage() {
   };
 
   const refreshWorkspaceRuntime = useCallback(async () => {
-    if (!workspace) return;
+    const state = useAppStore.getState();
+    const session = getActiveSession(state);
+    const ws = getActiveSessionWorkspace(state);
+    if (!session || !ws) return;
 
     const response = await fetch("/api/runtime", {
       method: "POST",
@@ -100,7 +107,7 @@ export function StudioPage() {
       },
       body: JSON.stringify({
         action: "status",
-        workspace,
+        workspace: ws,
       }),
     });
 
@@ -109,50 +116,51 @@ export function StudioPage() {
     }
 
     const json = (await response.json()) as {
-      workspace?: typeof workspace;
+      workspace?: typeof ws;
       error?: string;
     };
     if (json.workspace) {
-      setWorkspaceSnapshot(json.workspace, activeSession.id);
+      setWorkspaceSnapshot(json.workspace, session.id);
     }
-  }, [activeSession.id, setWorkspaceSnapshot, workspace]);
+  }, [setWorkspaceSnapshot]);
 
-  const runRuntimeAction = useCallback(async (
-    action: RuntimeAction,
-    options?: { command?: string; processId?: string }
-  ) => {
-    if (!workspace) return;
+  const handleRuntimeProviderChange = useCallback(
+    (provider: SelectableRuntimeProviderMode) => {
+      const state = useAppStore.getState();
+      const session = getActiveSession(state);
+      const ws = getActiveSessionWorkspace(state);
+      if (!session || !ws) return;
 
-    const response = await fetch("/api/runtime", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        action,
-        workspace,
-        command: options?.command,
-        processId: options?.processId,
-      }),
-    });
+      const nextWorkspace = setWorkspaceRuntimeProvider(ws, provider);
+      setWorkspaceSnapshot(nextWorkspace, session.id);
+      void fetch("/api/runtime", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "status",
+          workspace: nextWorkspace,
+        }),
+      })
+        .then(async (response) => {
+          if (!response.ok) {
+            return;
+          }
 
-    if (!response.ok) {
-      return;
-    }
-
-    const json = (await response.json()) as {
-      workspace?: typeof workspace;
-    };
-    if (json.workspace) {
-      setWorkspaceSnapshot(json.workspace, activeSession.id);
-    }
-  }, [activeSession.id, setWorkspaceSnapshot, workspace]);
-
-  const reconnectSandbox = useCallback(async () => {
-    await refreshWorkspaceRuntime();
-    await runRuntimeAction("sync_workspace");
-    await runRuntimeAction("start_preview");
-  }, [refreshWorkspaceRuntime, runRuntimeAction]);
+          const json = (await response.json()) as {
+            workspace?: typeof nextWorkspace;
+          };
+          if (json.workspace) {
+            setWorkspaceSnapshot(json.workspace, session.id);
+          }
+        })
+        .catch(() => {
+          // Keep the local selection even if status refresh fails.
+        });
+    },
+    [setWorkspaceSnapshot]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -184,8 +192,12 @@ export function StudioPage() {
   }, []);
 
   useEffect(() => {
+    if (runtimeStatusFetchedSessions.has(activeSessionId)) {
+      return;
+    }
+    runtimeStatusFetchedSessions.add(activeSessionId);
     void refreshWorkspaceRuntime();
-  }, [refreshWorkspaceRuntime]);
+  }, [activeSessionId, refreshWorkspaceRuntime]);
 
   const chatPanel = (
     <ChatPanel
@@ -224,11 +236,6 @@ export function StudioPage() {
       onRuntimeError={(error) => {
         setRuntimeError(error);
       }}
-      onSyncToSandbox={
-        workspace?.runtime.provider === "sandbox"
-          ? () => runRuntimeAction("sync_workspace")
-          : undefined
-      }
     />
   );
 
@@ -262,13 +269,6 @@ export function StudioPage() {
                   onRefresh={() => {
                     void refreshWorkspaceRuntime();
                   }}
-                  onReconnectSandbox={
-                    workspace?.runtime.provider === "sandbox"
-                      ? () => {
-                          void reconnectSandbox();
-                        }
-                      : undefined
-                  }
                 />
               </div>
             </div>
@@ -343,8 +343,12 @@ export function StudioPage() {
                   <div className="flex h-full min-h-0 flex-col gap-3 p-3">
                     <RuntimeControls
                       workspace={workspace}
-                      disabled={isGenerating}
-                      onRunAction={runRuntimeAction}
+                      selectedProvider={
+                        workspace?.runtime.provider === "cloudflare-sandbox"
+                          ? "cloudflare-sandbox"
+                          : "local"
+                      }
+                      onProviderChange={handleRuntimeProviderChange}
                     />
                     <div className="min-h-0 flex-1 overflow-hidden">
                       {previewPanel}
@@ -365,11 +369,15 @@ export function StudioPage() {
                   }
                   right={
                     <div className="h-full min-h-0 min-w-0 flex-1 overflow-hidden p-2 pl-0 flex flex-col gap-3">
-                      <RuntimeControls
-                        workspace={workspace}
-                        disabled={isGenerating}
-                        onRunAction={runRuntimeAction}
-                      />
+                        <RuntimeControls
+                          workspace={workspace}
+                          selectedProvider={
+                            workspace?.runtime.provider === "cloudflare-sandbox"
+                              ? "cloudflare-sandbox"
+                              : "local"
+                          }
+                          onProviderChange={handleRuntimeProviderChange}
+                        />
                       <div className="min-h-0 flex-1 overflow-hidden">
                         {previewPanel}
                       </div>

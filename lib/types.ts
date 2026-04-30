@@ -18,6 +18,7 @@ export type AgentActivityKind =
   | "delete"
   | "rename"
   | "verify"
+  | "runtime"
   | "complete";
 
 export type AgentActivityStatus = "pending" | "active" | "completed" | "error";
@@ -68,13 +69,14 @@ export interface WorkspacePreviewState {
 }
 
 export interface WorkspaceRuntimeState {
-  provider: "virtual" | "sandbox";
+  provider: "virtual" | "local" | "cloudflare-sandbox";
   status: "idle" | "provisioning" | "ready" | "error";
   rootPath: string;
   workspaceId: string;
   lastCommand?: string;
   lastOutput?: string;
   lastError?: string;
+  lastProcessId?: string;
   providerLabel?: string;
   providerMeta?: Record<string, string>;
   preview: WorkspacePreviewState;

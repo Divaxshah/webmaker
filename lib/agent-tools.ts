@@ -2,8 +2,7 @@ import path from "node:path";
 import {
   normalizeProjectPath,
 } from "@/lib/project";
-import { getRuntimeConfig } from "@/lib/runtime-config";
-import { verifyWorkspaceBuild } from "@/lib/runtime-service";
+import { executeRuntimeAction, type RuntimeAction } from "@/lib/runtime-service";
 import type { GeneratedProject, WorkspaceSnapshot } from "@/lib/types";
 import {
   deleteWorkspaceFiles,
@@ -29,7 +28,13 @@ export type AgentToolName =
   | "agent.rename"
   | "agent.delete"
   | "agent.verify"
-  | "agent.complete";
+  | "agent.complete"
+  | "runtime.run_command"
+  | "runtime.install_dependencies"
+  | "runtime.start_preview"
+  | "runtime.get_logs"
+  | "runtime.verify_build"
+  | "runtime.sync_workspace";
 
 export interface AgentToolCall {
   tool: AgentToolName;
@@ -81,6 +86,12 @@ export const TOOL_NAMES: AgentToolName[] = [
   "agent.delete",
   "agent.verify",
   "agent.complete",
+  "runtime.run_command",
+  "runtime.install_dependencies",
+  "runtime.start_preview",
+  "runtime.get_logs",
+  "runtime.verify_build",
+  "runtime.sync_workspace",
 ];
 
 export const DEFAULT_VERIFY_CHECKS = [
@@ -679,51 +690,73 @@ export const executeAgentTool = async (
         checks.length > 0 ? checks : DEFAULT_VERIFY_CHECKS
       );
 
-      const sandboxBuildRequested =
-        toolCall.arguments?.sandboxBuild === true ||
-        checks.some((c) => c.trim().toLowerCase() === "sandbox build");
-
-      let nextWorkspace = workspace;
-      let sandboxDetails:
-        | { ok: boolean; output: string; error?: string }
-        | undefined;
-
-      if (
-        sandboxBuildRequested &&
-        workspace.runtime.provider === "sandbox" &&
-        getRuntimeConfig().gateway
-      ) {
-        const buildResult = await verifyWorkspaceBuild(workspace);
-        nextWorkspace = buildResult.workspace;
-        sandboxDetails = {
-          ok: !buildResult.error,
-          output: buildResult.output ?? "",
-          ...(buildResult.error ? { error: buildResult.error } : {}),
-        };
-      }
-
+      const nextWorkspace = workspace;
       const nextProject = syncWorkspaceToProject(nextWorkspace);
-      const mergedOk =
-        verification.ok && (sandboxDetails === undefined || sandboxDetails.ok);
+
+      return {
+        workspace: nextWorkspace,
+        project: nextProject,
+        toolResult: verification,
+        completedDetail: verification.ok
+          ? "Verified entry wiring and relative imports."
+          : "Detected project issues that still need fixes.",
+        verifiedSignature: verification.ok
+          ? getProjectSignature(nextProject)
+          : verifiedSignature,
+      };
+    }
+
+    case "runtime.sync_workspace":
+    case "runtime.install_dependencies":
+    case "runtime.start_preview":
+    case "runtime.get_logs":
+    case "runtime.verify_build":
+    case "runtime.run_command": {
+      const runtimeActionByTool: Record<
+        Extract<AgentToolName, `runtime.${string}`>,
+        RuntimeAction
+      > = {
+        "runtime.sync_workspace": "sync_workspace",
+        "runtime.install_dependencies": "install_dependencies",
+        "runtime.start_preview": "start_preview",
+        "runtime.get_logs": "get_logs",
+        "runtime.verify_build": "verify_build",
+        "runtime.run_command": "run_command",
+      };
+
+      const command =
+        typeof toolCall.arguments?.command === "string"
+          ? toolCall.arguments.command
+          : undefined;
+      const processId =
+        typeof toolCall.arguments?.processId === "string"
+          ? toolCall.arguments.processId
+          : undefined;
+      const runtimeResult = await executeRuntimeAction(
+        workspace,
+        runtimeActionByTool[toolCall.tool],
+        { command, processId }
+      );
+      const nextWorkspace = runtimeResult.workspace;
+      const nextProject = syncWorkspaceToProject(nextWorkspace);
 
       return {
         workspace: nextWorkspace,
         project: nextProject,
         toolResult: {
-          ...verification,
-          ...(sandboxDetails ? { sandboxBuild: sandboxDetails } : {}),
+          ok: !runtimeResult.error,
+          output: runtimeResult.output,
+          error: runtimeResult.error,
+          structuredErrors: runtimeResult.structuredErrors,
+          runtime: nextWorkspace.runtime,
         },
-        completedDetail:
-          sandboxDetails !== undefined
-            ? mergedOk
-              ? "Local checks passed and sandbox build succeeded."
-              : "Local checks and/or sandbox build reported issues."
-            : verification.ok
-              ? "Verified entry wiring and relative imports."
-              : "Detected project issues that still need fixes.",
-        verifiedSignature: mergedOk
-          ? getProjectSignature(nextProject)
-          : verifiedSignature,
+        completedDetail: runtimeResult.error
+          ? runtimeResult.error
+          : runtimeResult.output ?? `Ran ${toolCall.tool}.`,
+        verifiedSignature:
+          toolCall.tool === "runtime.verify_build" && !runtimeResult.error
+            ? getProjectSignature(nextProject)
+            : verifiedSignature,
       };
     }
 

@@ -12,7 +12,12 @@ import type {
 } from "@/lib/types";
 import { DEFAULT_LUMINO_MODEL, type LuminoModelId } from "@/lib/models";
 import { createId, STARTER_PROJECT } from "@/lib/utils";
-import { createWorkspaceSnapshot, syncProjectToWorkspace } from "@/lib/workspace";
+import {
+  coerceWorkspaceToSupportedProvider,
+  createWorkspaceSnapshot,
+  DEFAULT_ACTIVE_SKILL_IDS,
+  syncProjectToWorkspace,
+} from "@/lib/workspace";
 
 interface AppState {
   sessions: Session[];
@@ -47,7 +52,7 @@ const createSession = (): Session => ({
   messages: [],
   currentProject: STARTER_PROJECT,
   workspace: createWorkspaceSnapshot(STARTER_PROJECT),
-  activeSkillIds: [],
+  activeSkillIds: [...DEFAULT_ACTIVE_SKILL_IDS],
   createdAt: new Date().toISOString(),
 });
 
@@ -209,11 +214,14 @@ export const useAppStore = create<AppState>()(
               const migrated = migrateLegacySession(session);
               return {
                 ...migrated,
-                workspace: syncProjectToWorkspace(
-                  migrated.workspace ?? createWorkspaceSnapshot(migrated.currentProject),
-                  migrated.currentProject
+                workspace: coerceWorkspaceToSupportedProvider(
+                  syncProjectToWorkspace(
+                    migrated.workspace ?? createWorkspaceSnapshot(migrated.currentProject),
+                    migrated.currentProject
+                  )
                 ),
-                activeSkillIds: migrated.activeSkillIds ?? [],
+                activeSkillIds:
+                  migrated.activeSkillIds ?? [...DEFAULT_ACTIVE_SKILL_IDS],
               };
             })
           : currentState.sessions;

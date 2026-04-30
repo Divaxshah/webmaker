@@ -20,6 +20,7 @@ import {
   normalizeProject,
   normalizeProjectPath,
 } from "@/lib/project";
+import { getRuntimeProviderLabel } from "@/lib/runtime-config";
 import type { GeneratedProject, WorkspaceSnapshot } from "@/lib/types";
 import { estimateTokenCount } from "@/lib/utils";
 
@@ -37,7 +38,7 @@ type AgentConversationMessage =
 interface RunAgentLoopOptions {
   messages: AgentInputMessage[];
   currentProject: GeneratedProject | null;
-  /** When set, sandbox-aware verification and workspace ids match the Studio session. */
+  /** Session workspace snapshot so tool handlers merge with the same ids as Studio. */
   sessionWorkspace?: WorkspaceSnapshot | null;
   modelId: string;
   activeSkillIds?: string[];
@@ -225,6 +226,8 @@ const buildActivity = (
                       ? "delete"
                       : tool === "agent.verify"
                         ? "verify"
+                        : tool.startsWith("runtime.")
+                          ? "runtime"
                         : "complete";
 
   const title =
@@ -248,6 +251,18 @@ const buildActivity = (
                       ? "Delete obsolete files"
                       : tool === "agent.verify"
                         ? "Verify the project"
+                        : tool === "runtime.sync_workspace"
+                          ? "Sync runtime workspace"
+                          : tool === "runtime.install_dependencies"
+                            ? "Install dependencies"
+                            : tool === "runtime.run_command"
+                              ? "Run runtime command"
+                              : tool === "runtime.start_preview"
+                                ? "Start runtime preview"
+                                : tool === "runtime.get_logs"
+                                  ? "Read runtime logs"
+                                  : tool === "runtime.verify_build"
+                                    ? "Verify runtime build"
                         : "Finalize the result";
 
   return {
@@ -313,6 +328,7 @@ export const runAgentLoop = async ({
   let totalTokens = 0;
   let streamLog = "";
   let verifiedSignature: string | null = null;
+  let buildVerifiedSignature: string | null = null;
 
   const conversation: AgentConversationMessage[] = [
     { role: "system", content: systemPrompt },
@@ -321,7 +337,12 @@ export const runAgentLoop = async ({
       role: "user",
       content:
         `Current editable project overview:\n${summarizeProjectForAgent(project)}\n\n` +
-        "Use the local tool runtime. Do not output a full project blob. " +
+        `Active runtime provider: ${
+          sessionWorkspace?.runtime.provider ?? "local"
+        } (${getRuntimeProviderLabel(sessionWorkspace?.runtime.provider ?? "local")}).\n` +
+        "For local runtime, runtime.run_command is restricted to the documented npm allowlist.\n" +
+        "For cloudflare-sandbox runtime, use Cloudflare Sandbox semantics: sandbox.exec() for one-shot commands, sandbox.startProcess() for long-running processes, sandbox.getProcessLogs()/sandbox.streamProcessLogs() for logs, sandbox.createCodeContext()+sandbox.runCode() for interpreter execution, sandbox.terminal() for terminal websockets, and sandbox.wsConnect() for websocket services.\n" +
+        "Do not output a full project blob. " +
         "Return exactly one JSON tool call per turn.",
     },
   ];
@@ -410,6 +431,35 @@ export const runAgentLoop = async ({
     try {
       if (toolCall.tool === "agent.complete") {
         const currentSignature = getProjectSignature(project);
+
+        if (buildVerifiedSignature !== currentSignature) {
+          streamLog = appendLog(
+            streamLog,
+            "Runtime build verification is required before completion."
+          );
+          await onEvent({
+            type: "delta",
+            tail: streamLog.slice(-240),
+            tokenCount: totalTokens,
+          });
+
+          conversation.push({
+            role: "user",
+            content:
+              "Before calling agent.complete, run runtime.sync_workspace, runtime.install_dependencies if needed, and runtime.verify_build. Fix any build errors before completing.",
+          });
+
+          await onEvent({
+            type: "activity",
+            activity: buildActivity(
+              activityId,
+              toolCall.tool,
+              "completed",
+              "Completion paused until runtime build verification passes."
+            ),
+          });
+          continue;
+        }
 
         if (verifiedSignature !== currentSignature) {
           const verification = runLocalVerification(project, DEFAULT_VERIFY_CHECKS);
@@ -511,6 +561,22 @@ export const runAgentLoop = async ({
       toolResult = execution.toolResult;
       completedDetail = execution.completedDetail;
       verifiedSignature = execution.verifiedSignature;
+
+      if (
+        toolCall.tool === "agent.create" ||
+        toolCall.tool === "agent.edit" ||
+        toolCall.tool === "agent.patch" ||
+        toolCall.tool === "agent.rename" ||
+        toolCall.tool === "agent.delete"
+      ) {
+        buildVerifiedSignature = null;
+      }
+
+      if (toolCall.tool === "runtime.verify_build") {
+        const result = toolResult as { ok?: unknown; error?: unknown };
+        buildVerifiedSignature =
+          result.ok === true && !result.error ? getProjectSignature(project) : null;
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       streamLog = appendLog(

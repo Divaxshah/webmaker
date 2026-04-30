@@ -1,6 +1,6 @@
 # Webmaker
 
-AI-assisted frontend studio (Next.js): chat, Sandpack preview, optional Cloudflare Sandbox for real installs/dev preview.
+AI-assisted frontend studio (Next.js): chat, browser preview, ZIP/export and shareable preview (`/api/preview`).
 
 ## Quick start (local)
 
@@ -23,19 +23,41 @@ curl -s http://localhost:3000/api/health | jq
 ```
 
 - **`OPENROUTER_API_KEY`** — required for generation.
-- **Sandbox + Redis** — optional; see **[DEPLOY.md](./DEPLOY.md)** for production.
+- **Cloudflare Sandbox + Redis** — optional; see **[DEPLOY.md](./DEPLOY.md)** for production.
+
+## Cloudflare Sandbox status
+
+The Studio now has a runtime provider selector with:
+
+- `local`
+- `cloudflare-sandbox`
+
+This repo now includes the Cloudflare gateway scaffold at `workers/sandbox-gateway/`.
+
+What is already done:
+
+- `workers/sandbox-gateway/package.json`
+- `workers/sandbox-gateway/wrangler.jsonc`
+- `workers/sandbox-gateway/Dockerfile`
+- `workers/sandbox-gateway/src/index.ts`
+- root scripts:
+  - `npm run sandbox-gateway:dev`
+  - `npm run sandbox-gateway:deploy`
+- Next.js runtime calls the gateway when `cloudflare-sandbox` is selected
+
+What is still on you:
+
+- install worker dependencies
+- configure Wrangler auth and Sandbox binding in your Cloudflare account
+- set the worker secrets/vars
+- deploy the worker
+- set the Next.js app env vars to the deployed gateway URL/token
+
+Until you deploy and configure those pieces, use `local` for actual runtime execution.
 
 ## Deploy
 
-Follow **[DEPLOY.md](./DEPLOY.md)** end-to-end (OpenRouter → optional Upstash → optional Sandbox Worker).
-
-### Sandbox Worker only
-
-```bash
-npm run sandbox-gateway:deploy
-```
-
-This installs deps under `workers/sandbox-gateway` and runs `wrangler deploy`.
+Follow **[DEPLOY.md](./DEPLOY.md)** end-to-end.
 
 ---
 

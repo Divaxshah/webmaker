@@ -1,70 +1,37 @@
-export interface CloudflareSandboxConfig {
-  accountId: string;
-  sandboxBinding: string;
-  workerName: string;
-  durableObjectNamespace?: string;
-  defaultRootPath: string;
-}
+export type RuntimeProviderMode = "local" | "virtual" | "cloudflare-sandbox";
+export type SelectableRuntimeProviderMode = "local" | "cloudflare-sandbox";
 
-/** HTTP bridge to a Worker that holds the Sandbox SDK (`workers/sandbox-gateway`). */
-export interface SandboxGatewayConfig {
-  baseUrl: string;
-  secret: string;
-}
-
+/** Runtime provider selection. Local is the default runtime; Cloudflare Sandbox is selectable behind the same contract. */
 export interface WebmakerRuntimeConfig {
-  defaultProvider: "virtual" | "sandbox";
-  /** Legacy/account metadata — informational once gateway auth is used. */
-  cloudflare: CloudflareSandboxConfig | null;
-  /** Required for real sandbox execution from Next.js (Workers-only SDK). */
-  gateway: SandboxGatewayConfig | null;
+  readonly mode: RuntimeProviderMode;
 }
 
-export const getRuntimeConfig = (): WebmakerRuntimeConfig => {
-  const gatewayUrl = process.env.SANDBOX_GATEWAY_URL?.trim() ?? "";
-  const gatewaySecret = process.env.SANDBOX_GATEWAY_SECRET?.trim() ?? "";
+export const isRuntimeProviderMode = (
+  value: unknown
+): value is RuntimeProviderMode =>
+  value === "local" || value === "virtual" || value === "cloudflare-sandbox";
 
-  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID?.trim() ?? "";
-  const sandboxBinding = process.env.CLOUDFLARE_SANDBOX_BINDING?.trim() ?? "";
-  const workerName = process.env.CLOUDFLARE_WORKER_NAME?.trim() ?? "";
-  const durableObjectNamespace =
-    process.env.CLOUDFLARE_DO_NAMESPACE?.trim() || undefined;
-  const defaultRootPath =
-    process.env.CLOUDFLARE_SANDBOX_ROOT?.trim() || "/workspace";
+export const isSelectableRuntimeProviderMode = (
+  value: unknown
+): value is SelectableRuntimeProviderMode =>
+  value === "local" || value === "cloudflare-sandbox";
 
-  const gatewayReady = gatewayUrl.length > 0 && gatewaySecret.length > 0;
-
-  const legacyCloudflareMetaReady =
-    accountId.length > 0 &&
-    sandboxBinding.length > 0 &&
-    workerName.length > 0;
-
-  const cloudflare: CloudflareSandboxConfig | null =
-    gatewayReady || legacyCloudflareMetaReady
-      ? {
-          accountId: accountId || "—",
-          sandboxBinding: sandboxBinding || "SANDBOX_GATEWAY",
-          workerName: workerName || gatewayUrl || "webmaker-sandbox-gateway",
-          durableObjectNamespace,
-          defaultRootPath,
-        }
-      : null;
-
-  return {
-    defaultProvider: gatewayReady ? "sandbox" : "virtual",
-    cloudflare,
-    gateway: gatewayReady
-      ? {
-          baseUrl: gatewayUrl.replace(/\/$/, ""),
-          secret: gatewaySecret,
-        }
-      : null,
-  };
+export const getRuntimeProviderLabel = (mode: RuntimeProviderMode): string => {
+  switch (mode) {
+    case "cloudflare-sandbox":
+      return "Cloudflare Sandbox";
+    case "virtual":
+      return "Virtual Workspace";
+    case "local":
+    default:
+      return "Local Runtime";
+  }
 };
 
-/** True when gateway URL + secret are set (live sandbox from Next.js). */
-export const hasSandboxGateway = (): boolean =>
-  getRuntimeConfig().gateway !== null;
+export const getRuntimeConfig = (): WebmakerRuntimeConfig => {
+  const requestedMode = process.env.WEBMAKER_RUNTIME_PROVIDER;
 
-/** Back-compat name: gateway configured for executable sandbox. */
-export const hasCloudflareSandboxConfig = (): boolean => hasSandboxGateway();
+  return {
+    mode: isRuntimeProviderMode(requestedMode) ? requestedMode : "local",
+  };
+};

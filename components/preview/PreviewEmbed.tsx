@@ -1,9 +1,15 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useCallback, useRef, useEffect, useState } from "react";
 import { SandpackProvider, SandpackPreview } from "@codesandbox/sandpack-react";
 import type { GeneratedProject } from "@/lib/types";
 import { getPreviewSandpackConfig } from "@/lib/download-bootstrap";
+import {
+  WEBMAKER_SANDPACK_OPTIONS,
+  getSandpackSessionKey,
+  SANDPACK_BUNDLER_TIMEOUT_MAX_AUTO_RETRIES,
+} from "@/lib/sandpack-studio-options";
+import { SandpackTimeoutRecovery } from "@/components/preview/SandpackTimeoutRecovery";
 
 interface PreviewEmbedProps {
   project: GeneratedProject;
@@ -12,14 +18,21 @@ interface PreviewEmbedProps {
 export function PreviewEmbed({ project }: PreviewEmbedProps) {
   const previewConfig = useMemo(() => getPreviewSandpackConfig(project), [project]);
 
-  const sandpackKey = useMemo(
-    () =>
-      `${project.title}-${project.entry}-${Object.values(project.files).reduce(
-        (sum, f) => sum + f.code.length,
-        0
-      )}`,
-    [project]
-  );
+  const sandpackSessionKey = useMemo(() => getSandpackSessionKey(project), [project]);
+  const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
+  const bundlerTimeoutRetriesRef = useRef(0);
+
+  useEffect(() => {
+    bundlerTimeoutRetriesRef.current = 0;
+  }, [sandpackSessionKey]);
+
+  const recoverFromBundlerTimeout = useCallback(() => {
+    if (bundlerTimeoutRetriesRef.current >= SANDPACK_BUNDLER_TIMEOUT_MAX_AUTO_RETRIES) {
+      return;
+    }
+    bundlerTimeoutRetriesRef.current += 1;
+    setPreviewRefreshKey((k) => k + 1);
+  }, []);
 
   return (
     <div className="preview-embed-wrapper rounded-none" style={{ width: "100vw", height: "100vh" }}>
@@ -44,7 +57,7 @@ export function PreviewEmbed({ project }: PreviewEmbedProps) {
         }
       `}</style>
       <SandpackProvider
-        key={sandpackKey}
+        key={`${sandpackSessionKey}-${previewRefreshKey}`}
         template="vite-react-ts"
         files={previewConfig.files}
         theme="light"
@@ -53,11 +66,9 @@ export function PreviewEmbed({ project }: PreviewEmbedProps) {
           devDependencies: previewConfig.devDependencies,
           entry: previewConfig.entry,
         }}
-        options={{
-          autorun: true,
-          autoReload: true,
-        }}
+        options={WEBMAKER_SANDPACK_OPTIONS}
       >
+        <SandpackTimeoutRecovery onBundlerTimeout={recoverFromBundlerTimeout} />
         <SandpackPreview
           showNavigator={false}
           showOpenInCodeSandbox={false}

@@ -1,0 +1,35 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "webmaker-sandbox-gateway",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-04-29",
+  // Required by @cloudflare/sandbox (uses Node builtins such as node:path/posix).
+  "compatibility_flags": ["nodejs_compat"],
+  "containers": [
+    {
+      "class_name": "Sandbox",
+      "image": "./Dockerfile",
+      "instance_type": "lite",
+      "max_instances": 10
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "Sandbox",
+        "class_name": "Sandbox"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["Sandbox"]
+    }
+  ],
+  "vars": {
+    "SANDBOX_SLEEP_AFTER": "10m",
+    "SANDBOX_WORKSPACE_ROOT": "/workspace",
+    "SANDBOX_PREVIEW_PORT": "5173"
+  }
+}

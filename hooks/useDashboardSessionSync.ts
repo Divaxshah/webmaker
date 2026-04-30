@@ -10,7 +10,7 @@ import {
 import type { DashboardPersistPayload } from "@/lib/dashboard-session-store";
 import type { LuminoModelId } from "@/lib/models";
 import type { Session } from "@/lib/types";
-import { createWorkspaceSnapshot, syncProjectToWorkspace } from "@/lib/workspace";
+import { createWorkspaceSnapshot, DEFAULT_ACTIVE_SKILL_IDS, syncProjectToWorkspace } from "@/lib/workspace";
 import { useAppStore } from "@/lib/store";
 
 const DEBOUNCE_MS = 2500;
@@ -23,7 +23,7 @@ const hydrateSession = (session: Session): Session => {
       migrated.workspace ?? createWorkspaceSnapshot(migrated.currentProject),
       migrated.currentProject
     ),
-    activeSkillIds: migrated.activeSkillIds ?? [],
+    activeSkillIds: migrated.activeSkillIds ?? [...DEFAULT_ACTIVE_SKILL_IDS],
   };
 };
 
@@ -34,6 +34,8 @@ const hydrateSession = (session: Session): Session => {
 export function useDashboardSessionSync(enabled = true) {
   const hydrateDone = useRef(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** After Redis returns 503 (misconfigured host, ENOTFOUND, etc.), skip PUT spam. */
+  const redisSyncDisabledRef = useRef(false);
 
   useEffect(() => {
     if (!enabled || typeof window === "undefined") {
@@ -55,7 +57,10 @@ export function useDashboardSessionSync(enabled = true) {
           { cache: "no-store" }
         );
 
-        if (res.status === 503 || res.status === 404 || cancelled) {
+        if (res.status === 503 || res.status === 502 || res.status === 404 || cancelled) {
+          if (res.status === 503 || res.status === 502) {
+            redisSyncDisabledRef.current = true;
+          }
           hydrateDone.current = true;
           return;
         }
@@ -106,7 +111,7 @@ export function useDashboardSessionSync(enabled = true) {
     }
 
     const push = () => {
-      if (!hydrateDone.current) {
+      if (!hydrateDone.current || redisSyncDisabledRef.current) {
         return;
       }
 
@@ -132,6 +137,9 @@ export function useDashboardSessionSync(enabled = true) {
           });
 
           if (!res.ok) {
+            if (res.status === 503 || res.status === 502) {
+              redisSyncDisabledRef.current = true;
+            }
             return;
           }
 

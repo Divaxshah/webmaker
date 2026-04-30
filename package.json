@@ -3,11 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
+    "dev:turbo": "next dev",
+    "dev:unlock": "rm -f .next/dev/lock",
+    "clean": "rm -rf .next",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "sandbox-gateway:deploy": "npm --prefix workers/sandbox-gateway install && npm --prefix workers/sandbox-gateway run deploy"
+    "sandbox-gateway:dev": "npm --prefix workers/sandbox-gateway run dev",
+    "sandbox-gateway:deploy": "npm --prefix workers/sandbox-gateway run deploy"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",

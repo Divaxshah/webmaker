@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   SandpackLayout,
   SandpackProvider,
   defaultDark,
 } from "@codesandbox/sandpack-react";
+import { BrowserPreviewConsoleNotice } from "@/components/preview/BrowserPreviewConsoleNotice";
 import { ErrorBanner } from "@/components/preview/ErrorBanner";
 import { LivePreview } from "@/components/preview/LivePreview";
 import { CodeViewer } from "@/components/preview/CodeViewer";
@@ -13,10 +14,16 @@ import { ConsoleView } from "@/components/preview/ConsoleView";
 import { TabBar, type PreviewTab } from "@/components/preview/TabBar";
 import { getProjectPrimaryFile } from "@/lib/project";
 import type { GeneratedProject, RuntimeErrorState, WorkspaceSnapshot } from "@/lib/types";
-import { Cpu, ExternalLink, Link2, Loader2, AlertTriangle, RefreshCw, UploadCloud } from "lucide-react";
+import { Cpu, ExternalLink, Link2, Loader2, AlertTriangle, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { getPreviewSandpackConfig } from "@/lib/download-bootstrap";
+import {
+  WEBMAKER_SANDPACK_OPTIONS,
+  getSandpackSessionKey,
+  SANDPACK_BUNDLER_TIMEOUT_MAX_AUTO_RETRIES,
+} from "@/lib/sandpack-studio-options";
+import { SandpackTimeoutRecovery } from "@/components/preview/SandpackTimeoutRecovery";
 
 interface PreviewPanelProps {
   project: GeneratedProject;
@@ -27,8 +34,6 @@ interface PreviewPanelProps {
   onFixError: () => void;
   onRuntimeError: (error: RuntimeErrorState) => void;
   onShareError: () => void;
-  /** Push generated files to the Cloudflare Sandbox (same workspace as Install / Run). */
-  onSyncToSandbox?: () => void | Promise<void>;
 }
 
 const theme = {
@@ -62,7 +67,6 @@ export function PreviewPanel({
   onFixError,
   onRuntimeError,
   onShareError,
-  onSyncToSandbox,
 }: PreviewPanelProps) {
   const [activeTab, setActiveTab] = useState<PreviewTab>("preview");
   const [previewSource, setPreviewSource] = useState<"live" | "sandpack">("live");
@@ -82,22 +86,19 @@ export function PreviewPanel({
     () => getPreviewSandpackConfig(project),
     [project]
   );
-  const sandpackKey = useMemo(
-    () =>
-      `${project.title}-${project.entry}-${Object.values(project.files).reduce(
-        (sum, file) => sum + file.code.length,
-        0
-      )}`,
-    [project]
-  );
+  const sandpackSessionKey = useMemo(() => getSandpackSessionKey(project), [project]);
 
   const isStarterProject = project.title === "New Workspace" || project.title === "Webmaker Starter";
 
   const [openingPreview, setOpeningPreview] = useState(false);
-  const [syncBusy, setSyncBusy] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
+  const bundlerTimeoutRetriesRef = useRef(0);
+
+  useEffect(() => {
+    bundlerTimeoutRetriesRef.current = 0;
+  }, [sandpackSessionKey]);
   const runtimePreviewUrl = workspace?.runtime.preview.url;
   const liveSandboxUrl =
     runtimePreviewUrl &&
@@ -105,13 +106,26 @@ export function PreviewPanel({
       ? runtimePreviewUrl.trim()
       : null;
 
+  /** When false, skip Sandpack entirely (no esbuild-wasm/nodebox) — use external HTTPS iframe only. */
+  const mountSandpackBundler =
+    !liveSandboxUrl || previewSource === "sandpack";
+
   useEffect(() => {
     if (!liveSandboxUrl) {
       setPreviewSource("sandpack");
     }
   }, [liveSandboxUrl]);
 
+  const recoverFromBundlerTimeout = useCallback(() => {
+    if (bundlerTimeoutRetriesRef.current >= SANDPACK_BUNDLER_TIMEOUT_MAX_AUTO_RETRIES) {
+      return;
+    }
+    bundlerTimeoutRetriesRef.current += 1;
+    setPreviewRefreshKey((k) => k + 1);
+  }, []);
+
   const retryPreview = useCallback(() => {
+    bundlerTimeoutRetriesRef.current = 0;
     setPreviewRefreshKey((k) => k + 1);
   }, []);
 
@@ -285,36 +299,11 @@ export function PreviewPanel({
                     ? "bg-foreground text-background shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
+                title="Runs Vite/esbuild in your browser (Sandpack)."
               >
                 Sandpack
               </button>
             </div>
-          ) : null}
-          {onSyncToSandbox ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                void (async () => {
-                  setSyncBusy(true);
-                  try {
-                    await onSyncToSandbox();
-                  } finally {
-                    setSyncBusy(false);
-                  }
-                })();
-              }}
-              disabled={syncBusy}
-              title="Push generated files to the Cloudflare Sandbox"
-              className="rounded-xl border-border bg-background hover:bg-secondary text-foreground h-8 gap-1.5 px-3 text-[10px] font-bold uppercase tracking-[0.12em]"
-            >
-              {syncBusy ? (
-                <Loader2 size={13} className="animate-spin" />
-              ) : (
-                <UploadCloud size={13} />
-              )}
-              <span className="hidden sm:inline">Sync to sandbox</span>
-            </Button>
           ) : null}
           <Button
             variant="outline"
@@ -363,7 +352,7 @@ export function PreviewPanel({
         <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border-y border-emerald-500/20 text-emerald-700 dark:text-emerald-400/90 text-xs">
           <Link2 className="size-3.5 shrink-0 mt-0.5" />
           <p className="leading-snug">
-            Runtime preview available: {runtimePreviewUrl}
+            Runtime preview: {runtimePreviewUrl}
           </p>
         </div>
       ) : null}
@@ -372,7 +361,7 @@ export function PreviewPanel({
         <div className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 border-y border-amber-500/20 text-amber-700 dark:text-amber-400/90 text-xs">
           <AlertTriangle className="size-3.5 shrink-0 mt-0.5" />
           <p className="leading-snug">
-            Preview is in beta — you may see some text in the background. If you see a white screen or raw code, use the Refresh button above to reload. For the full experience, download the ZIP from the Code tab and run it locally.
+            If the preview looks wrong, use Refresh above.
           </p>
         </div>
       ) : null}
@@ -393,89 +382,136 @@ export function PreviewPanel({
             border-radius: 0 !important;
           }
         `}</style>
-        <SandpackProvider
-          key={`${sandpackKey}-${previewRefreshKey}`}
-          template="vite-react-ts"
-          files={previewConfig.files}
-          theme={theme}
-          customSetup={{
-            dependencies: previewConfig.dependencies,
-            devDependencies: previewConfig.devDependencies,
-            entry: previewConfig.entry,
-          }}
-          options={{
-            autorun: true,
-            autoReload: true,
-          }}
-        >
-          <div className="absolute inset-0">
-            <SandpackLayout
-              style={{
-                height: "100%",
-                minHeight: 0,
-                border: "none",
-                display: "flex",
-                flexDirection: "column",
-                flex: 1,
-                overflow: "hidden",
-                background: "transparent",
-              }}
-            >
-              <div className="relative min-h-0 flex-1">
-                <div
-                  className={`absolute inset-0 min-h-0 transition-opacity duration-300 ${
-                    activeTab === "preview"
-                      ? "pointer-events-auto opacity-100"
-                      : "pointer-events-none opacity-0"
-                  }`}
-                >
-                  <div className="flex h-full min-h-0 flex-col">
-                    {liveSandboxUrl && previewSource === "live" ? (
-                      <iframe
-                        key={`${liveSandboxUrl}-${previewRefreshKey}`}
-                        title="Sandbox live preview"
-                        src={liveSandboxUrl}
-                        className="h-full min-h-0 w-full flex-1 border-0 bg-background"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-                      />
-                    ) : (
-                      <LivePreview
-                        onRuntimeError={onRuntimeError}
-                        onRetryFullRemount={retryPreview}
-                      />
-                    )}
+
+        {mountSandpackBundler ? (
+          <SandpackProvider
+            key={`${sandpackSessionKey}-${previewRefreshKey}`}
+            template="vite-react-ts"
+            files={previewConfig.files}
+            theme={theme}
+            customSetup={{
+              dependencies: previewConfig.dependencies,
+              devDependencies: previewConfig.devDependencies,
+              entry: previewConfig.entry,
+            }}
+            options={WEBMAKER_SANDPACK_OPTIONS}
+          >
+            <SandpackTimeoutRecovery onBundlerTimeout={recoverFromBundlerTimeout} />
+            <div className="absolute inset-0">
+              <SandpackLayout
+                style={{
+                  height: "100%",
+                  minHeight: 0,
+                  border: "none",
+                  display: "flex",
+                  flexDirection: "column",
+                  flex: 1,
+                  overflow: "hidden",
+                  background: "transparent",
+                }}
+              >
+                <div className="relative min-h-0 flex-1">
+                  <div
+                    className={`absolute inset-0 min-h-0 transition-opacity duration-300 ${
+                      activeTab === "preview"
+                        ? "pointer-events-auto opacity-100"
+                        : "pointer-events-none opacity-0"
+                    }`}
+                  >
+                    <div className="flex h-full min-h-0 flex-col">
+                      {liveSandboxUrl && previewSource === "live" ? (
+                        <iframe
+                          key={`${liveSandboxUrl}-${previewRefreshKey}`}
+                          title="Live preview"
+                          src={liveSandboxUrl}
+                          className="h-full min-h-0 w-full flex-1 border-0 bg-background"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                        />
+                      ) : (
+                        <LivePreview
+                          onRuntimeError={onRuntimeError}
+                          onRetryFullRemount={retryPreview}
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  <div
+                    className={`absolute inset-0 min-h-0 transition-opacity duration-300 ${
+                      activeTab === "code"
+                        ? "pointer-events-auto opacity-100"
+                        : "pointer-events-none opacity-0"
+                    }`}
+                  >
+                    <CodeViewer
+                      project={project}
+                      activeFile={activeFile}
+                      runtimeError={runtimeError}
+                      onActiveFileChange={setActiveFile}
+                      onShareError={onShareError}
+                    />
+                  </div>
+
+                  <div
+                    className={`absolute inset-0 min-h-0 transition-opacity duration-300 ${
+                      activeTab === "console"
+                        ? "pointer-events-auto opacity-100"
+                        : "pointer-events-none opacity-0"
+                    }`}
+                  >
+                    <ConsoleView />
                   </div>
                 </div>
-
-                <div
-                  className={`absolute inset-0 min-h-0 transition-opacity duration-300 ${
-                    activeTab === "code"
-                      ? "pointer-events-auto opacity-100"
-                      : "pointer-events-none opacity-0"
-                  }`}
-                >
-                  <CodeViewer
-                    project={project}
-                    activeFile={activeFile}
-                    runtimeError={runtimeError}
-                    onActiveFileChange={setActiveFile}
-                    onShareError={onShareError}
-                  />
-                </div>
-
-                <div
-                  className={`absolute inset-0 min-h-0 transition-opacity duration-300 ${
-                    activeTab === "console"
-                      ? "pointer-events-auto opacity-100"
-                      : "pointer-events-none opacity-0"
-                  }`}
-                >
-                  <ConsoleView />
-                </div>
+              </SandpackLayout>
+            </div>
+          </SandpackProvider>
+        ) : (
+          <div className="absolute inset-0 flex min-h-0 flex-col">
+            <div className="relative min-h-0 flex-1">
+              <div
+                className={`absolute inset-0 min-h-0 transition-opacity duration-300 ${
+                  activeTab === "preview"
+                    ? "pointer-events-auto opacity-100"
+                    : "pointer-events-none opacity-0"
+                }`}
+              >
+                <iframe
+                  key={`${liveSandboxUrl}-${previewRefreshKey}`}
+                  title="Live preview"
+                  src={liveSandboxUrl ?? ""}
+                  className="h-full min-h-0 w-full border-0 bg-background"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                />
               </div>
-            </SandpackLayout>
+
+              <div
+                className={`absolute inset-0 min-h-0 transition-opacity duration-300 ${
+                  activeTab === "code"
+                    ? "pointer-events-auto opacity-100"
+                    : "pointer-events-none opacity-0"
+                }`}
+              >
+                <CodeViewer
+                  project={project}
+                  activeFile={activeFile}
+                  runtimeError={runtimeError}
+                  onActiveFileChange={setActiveFile}
+                  onShareError={onShareError}
+                />
+              </div>
+
+              <div
+                className={`absolute inset-0 min-h-0 transition-opacity duration-300 ${
+                  activeTab === "console"
+                    ? "pointer-events-auto opacity-100"
+                    : "pointer-events-none opacity-0"
+                }`}
+              >
+                <BrowserPreviewConsoleNotice />
+              </div>
+            </div>
           </div>
-        </SandpackProvider>
+        )}
       </div>
 
       {runtimeError && activeTab === "preview" && (

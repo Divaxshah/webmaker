@@ -153,7 +153,7 @@
     }
   },
   "agent.verify": {
-    "description": "Run local consistency checks before finishing. Optionally run npm run build inside the Cloudflare Sandbox when sandboxBuild is true or checks includes \"sandbox build\".",
+    "description": "Run local consistency checks before runtime verification (entry exists, imports resolve, dependencies declared).",
     "parameters": {
       "type": "object",
       "properties": {
@@ -161,10 +161,59 @@
           "type": "array",
           "items": { "type": "string" },
           "description": "Optional named checks such as entry exists or imports resolve."
-        },
-        "sandboxBuild": {
-          "type": "boolean",
-          "description": "When true (and the Studio session uses a sandbox), sync files and run npm run build in the remote sandbox; stderr/stdout are returned in the tool result."
+        }
+      }
+    }
+  },
+  "runtime.sync_workspace": {
+    "description": "Write the current generated project to the active runtime workspace. For Cloudflare Sandbox, this means staging the project for SDK-backed sync/orchestration.",
+    "parameters": {
+      "type": "object",
+      "properties": {}
+    }
+  },
+  "runtime.install_dependencies": {
+    "description": "Install dependencies in the active runtime workspace. Local runtime uses npm install. Cloudflare Sandbox should map to sandbox.exec('npm install').",
+    "parameters": {
+      "type": "object",
+      "properties": {}
+    }
+  },
+  "runtime.run_command": {
+    "description": "Run a command in the active runtime workspace. Local runtime allows only a fixed npm allowlist. Cloudflare Sandbox should map one-shot commands to sandbox.exec(command, options).",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "command": {
+          "type": "string",
+          "description": "For local runtime the allowed commands are: npm install, npm run build, npm run dev, npm test, or npm run lint. For Cloudflare Sandbox, use the same command strings but expect sandbox.exec(command, options) semantics behind the tool."
+        }
+      },
+      "required": ["command"]
+    }
+  },
+  "runtime.verify_build": {
+    "description": "Run the project production build and return stdout, stderr, and structured errors. Local runtime uses npm run build. Cloudflare Sandbox should map to sandbox.exec('npm run build').",
+    "parameters": {
+      "type": "object",
+      "properties": {}
+    }
+  },
+  "runtime.start_preview": {
+    "description": "Start the runtime dev server and return a preview URL. Local runtime starts npm run dev. Cloudflare Sandbox should use sandbox.startProcess('npm run dev'), wait for the serving port, then expose it.",
+    "parameters": {
+      "type": "object",
+      "properties": {}
+    }
+  },
+  "runtime.get_logs": {
+    "description": "Read captured runtime logs for the active preview process or last command. Cloudflare Sandbox should map to sandbox.getProcessLogs(processId) or sandbox.streamProcessLogs(processId).",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "processId": {
+          "type": "string",
+          "description": "Optional process id returned by runtime.start_preview."
         }
       }
     }

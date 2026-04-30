@@ -90,28 +90,32 @@ const TOOL_DEFINITIONS: WebmakerToolDefinition[] = [
   {
     name: "runtime.run_command",
     title: "Run Command",
-    description: "Placeholder runtime capability for command execution in a future sandbox-backed workspace.",
+    description:
+      "Run an allowed command in the active runtime workspace.",
     mutatesWorkspace: false,
     requiresVerificationAfterRun: false,
   },
   {
     name: "runtime.install_dependencies",
     title: "Install Dependencies",
-    description: "Placeholder runtime capability for dependency installation in a future sandbox-backed workspace.",
+    description:
+      "Install project dependencies in the active runtime workspace.",
     mutatesWorkspace: true,
     requiresVerificationAfterRun: true,
   },
   {
     name: "runtime.start_preview",
     title: "Start Preview",
-    description: "Placeholder runtime capability for booting a real preview server in a future sandbox-backed workspace.",
+    description:
+      "Start the runtime dev server and expose a preview URL.",
     mutatesWorkspace: false,
     requiresVerificationAfterRun: false,
   },
   {
     name: "runtime.get_logs",
     title: "Get Logs",
-    description: "Placeholder runtime capability for retrieving runtime and preview logs in a future sandbox-backed workspace.",
+    description:
+      "Read captured output from the active runtime process or last command.",
     mutatesWorkspace: false,
     requiresVerificationAfterRun: false,
   },
@@ -135,7 +139,10 @@ export const getToolDefinition = (
 export const getToolNames = (): AgentToolName[] =>
   TOOL_DEFINITIONS
     .map((tool) => tool.name)
-    .filter((toolName): toolName is AgentToolName => toolName.startsWith("agent."));
+    .filter(
+      (toolName): toolName is AgentToolName =>
+        toolName.startsWith("agent.") || toolName.startsWith("runtime.")
+    );
 
 export const getRuntimeCapabilityNames = (): string[] =>
   TOOL_DEFINITIONS
