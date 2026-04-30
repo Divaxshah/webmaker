@@ -10,12 +10,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "vitest run",
     "sandbox-gateway:dev": "npm --prefix workers/sandbox-gateway run dev",
     "sandbox-gateway:deploy": "npm --prefix workers/sandbox-gateway run deploy"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
-    "@codesandbox/sandpack-react": "^2.20.0",
     "@fontsource-variable/sora": "^5.2.8",
     "@fontsource/bricolage-grotesque": "^5.2.10",
     "@fontsource/dm-serif-display": "^5.2.8",
@@ -23,6 +23,7 @@
     "@fontsource/manrope": "^5.2.8",
     "@fontsource/outfit": "^5.2.8",
     "@fontsource/syne": "^5.2.7",
+    "@stackblitz/sdk": "^1.11.0",
     "@upstash/redis": "^1.37.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -49,6 +50,8 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "tsx": "^4.19.0",
+    "typescript": "^5",
+    "vitest": "^3.0.0"
   }
 }

@@ -11,11 +11,13 @@ import type {
   WorkspaceSnapshot,
 } from "@/lib/types";
 import {
+  getRuntimeConfig,
   getRuntimeProviderLabel,
   type RuntimeProviderMode,
   type SelectableRuntimeProviderMode,
 } from "@/lib/runtime-config";
-const DEFAULT_WORKSPACE_ROOT = "/workspace";
+/** Placeholder root for snapshots; sandbox uses this path literally, local runtime maps it under `.webmaker/workspaces`. */
+export const DEFAULT_WORKSPACE_ROOT = "/workspace";
 
 export const BUILTIN_SKILLS: SkillReference[] = [
   {
@@ -95,21 +97,30 @@ export const ensureWorkspaceProjectIntegrity = (
 export const createWorkspaceSnapshot = (
   project?: GeneratedProject,
   workspaceId = generateWorkspaceId()
-): WorkspaceSnapshot => ({
-  id: workspaceId,
-  project: ensureWorkspaceProjectIntegrity(project ?? createStarterProject()),
-  runtime: {
-    provider: "local",
-    status: "idle",
-    rootPath: DEFAULT_WORKSPACE_ROOT,
-    workspaceId,
-    providerLabel: getRuntimeProviderLabel("local"),
-    preview: {
+): WorkspaceSnapshot => {
+  const runtimeMode = getRuntimeConfig().mode;
+  return {
+    id: workspaceId,
+    project: ensureWorkspaceProjectIntegrity(project ?? createStarterProject()),
+    runtime: {
+      provider: runtimeMode,
       status: "idle",
+      rootPath: DEFAULT_WORKSPACE_ROOT,
+      workspaceId,
+      providerLabel: getRuntimeProviderLabel(runtimeMode),
+      providerMeta:
+        runtimeMode === "cloudflare-sandbox"
+          ? { mode: "cloudflare-sandbox" }
+          : runtimeMode === "virtual"
+            ? { mode: "in-memory" }
+            : { mode: "local" },
+      preview: {
+        status: "idle",
+      },
     },
-  },
-  updatedAt: new Date().toISOString(),
-});
+    updatedAt: new Date().toISOString(),
+  };
+};
 
 export const workspaceFromProject = (
   project: GeneratedProject,
@@ -121,13 +132,16 @@ export const workspaceFromProject = (
 export const coerceWorkspaceToSupportedProvider = (
   workspace: WorkspaceSnapshot
 ): WorkspaceSnapshot => {
+  const runtimeConfig = getRuntimeConfig();
   const legacyProvider = workspace.runtime as { provider?: string };
   const provider: RuntimeProviderMode =
-    legacyProvider.provider === "cloudflare-sandbox"
-      ? "cloudflare-sandbox"
-      : legacyProvider.provider === "local"
-        ? "local"
-        : "local";
+    !runtimeConfig.runtimeToolsEnabled
+      ? "virtual"
+      : legacyProvider.provider === "cloudflare-sandbox"
+        ? "cloudflare-sandbox"
+        : legacyProvider.provider === "local"
+          ? "local"
+          : runtimeConfig.mode;
 
   if (
     workspace.runtime.provider === provider &&
@@ -147,7 +161,9 @@ export const coerceWorkspaceToSupportedProvider = (
       providerMeta:
         provider === "cloudflare-sandbox"
           ? { mode: "cloudflare-sandbox" }
-          : { mode: "local" },
+          : provider === "virtual"
+            ? { mode: "in-memory" }
+            : { mode: "local" },
       lastCommand: undefined,
       lastOutput: undefined,
       lastError: undefined,

@@ -8,7 +8,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { SelectableRuntimeProviderMode } from "@/lib/runtime-config";
+import {
+  areRuntimeToolsEnabled,
+  type SelectableRuntimeProviderMode,
+} from "@/lib/runtime-config";
 import type { WorkspaceSnapshot } from "@/lib/types";
 
 interface RuntimeControlsProps {
@@ -23,6 +26,10 @@ export function RuntimeControls({
   selectedProvider = "local",
   onProviderChange,
 }: RuntimeControlsProps) {
+  if (!areRuntimeToolsEnabled()) {
+    return null;
+  }
+
   if (!workspace && !onProviderChange) {
     return null;
   }

@@ -467,6 +467,22 @@ export const normalizeProjectPath = (value: string): string => {
   return cleaned.startsWith("/") ? cleaned : `/${cleaned}`;
 };
 
+/**
+ * User- or model-supplied paths must never be empty (empty strings previously mapped to `/src/App.tsx`).
+ */
+export const requireProjectPath = (value: unknown, fieldLabel: string): string => {
+  if (typeof value !== "string") {
+    throw new Error(`${fieldLabel} must be a string path.`);
+  }
+  const cleaned = value.replace(/\\/g, "/").trim();
+  if (!cleaned) {
+    throw new Error(
+      `${fieldLabel} must be a non-empty absolute project path (e.g. /src/App.tsx).`
+    );
+  }
+  return cleaned.startsWith("/") ? cleaned : `/${cleaned}`;
+};
+
 const normalizeFileMap = (value: unknown): ProjectFileMap => {
   if (!value || typeof value !== "object") {
     return createStarterProject().files;

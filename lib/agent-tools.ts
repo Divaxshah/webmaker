@@ -1,6 +1,7 @@
 import path from "node:path";
 import {
   normalizeProjectPath,
+  requireProjectPath,
 } from "@/lib/project";
 import { executeRuntimeAction, type RuntimeAction } from "@/lib/runtime-service";
 import type { GeneratedProject, WorkspaceSnapshot } from "@/lib/types";
@@ -114,7 +115,10 @@ export const getProjectSignature = (project: GeneratedProject): string =>
 
 export const normalizeStringArray = (value: unknown): string[] =>
   Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === "string")
+    ? value
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0)
     : [];
 
 export const normalizeFilePayload = (
@@ -130,6 +134,9 @@ export const normalizeFilePayload = (
 
   const processObjectMap = (obj: Record<string, unknown>) => {
     for (const [filePath, fileValue] of Object.entries(obj)) {
+      if (!filePath.trim()) {
+        continue;
+      }
       if (
         filePath === "path" ||
         filePath === "file" ||
@@ -194,7 +201,7 @@ export const normalizeFilePayload = (
               ? anyItem.file
               : null;
 
-        if (filePath && code !== null) {
+        if (filePath && filePath.trim() && code !== null) {
           entries.push([
             normalizeProjectPath(filePath),
             {
@@ -231,12 +238,33 @@ export const ensureProjectIntegrity = (
   project: GeneratedProject
 ): GeneratedProject => ensureWorkspaceProjectIntegrity(project);
 
-export const formatToolResult = (tool: AgentToolName, result: unknown): string =>
-  `Tool result for ${tool}:\n${JSON.stringify(
-    result,
-    null,
-    2
-  )}\n\nReturn the next JSON tool call only.`;
+const MAX_TOOL_RESULT_CHARS = 48_000;
+
+export const formatToolResult = (tool: AgentToolName, result: unknown): string => {
+  let payload = JSON.stringify(result, null, 2);
+  let truncated = false;
+  if (payload.length > MAX_TOOL_RESULT_CHARS) {
+    truncated = true;
+    payload = `${payload.slice(0, MAX_TOOL_RESULT_CHARS)}\n…(truncated, ${payload.length} chars total)`;
+  }
+  const note = truncated
+    ? "\n(Previous tool result was truncated to save context. If you need more, call a narrower tool or re-read specific files.)\n"
+    : "\n";
+  return `Tool result for ${tool}:${note}${payload}\n\nReturn the next JSON tool call only.`;
+};
+
+const describeProcessedCount = (
+  action: "read" | "write" | "delete",
+  processed: number,
+  requested: number
+): string => {
+  const verb =
+    action === "read" ? "Read" : action === "write" ? "Wrote" : "Deleted";
+  const noun = processed === 1 ? "file" : "files";
+  return requested > processed
+    ? `${verb} ${processed} of ${requested} requested ${noun}.`
+    : `${verb} ${processed} ${noun}.`;
+};
 
 const resolveImportPath = (
   project: GeneratedProject,
@@ -360,7 +388,8 @@ export const runLocalVerification = (
 
     return {
       label: check,
-      pass: true,
+      pass: false,
+      detail: `Unknown check "${check}". Valid checks: ${DEFAULT_VERIFY_CHECKS.join(", ")}.`,
     };
   });
 
@@ -476,8 +505,8 @@ export const executeAgentTool = async (
     }
 
     case "agent.read": {
-      const rawTargets = normalizeStringArray(toolCall.arguments?.targets).map((target) =>
-        normalizeProjectPath(target)
+      const rawTargets = normalizeStringArray(toolCall.arguments?.targets).map(
+        (target) => requireProjectPath(target, "agent.read target")
       );
       if (rawTargets.length === 0) {
         throw new Error("agent.read requires at least one file target.");
@@ -496,9 +525,11 @@ export const executeAgentTool = async (
             batchHint: `Only first ${MAX_READ_FILES} files returned. Call agent.read again with the next batch of paths (max ${MAX_READ_FILES} per call).`,
           }),
         },
-        completedDetail: `Read ${targets.length} file${
-          targets.length === 1 ? "" : "s"
-        } for detailed editing context.`,
+        completedDetail: `${describeProcessedCount(
+          "read",
+          Object.keys(readResult.files).length,
+          rawTargets.length
+        )} Loaded detailed editing context.`,
         verifiedSignature,
       };
     }
@@ -509,7 +540,7 @@ export const executeAgentTool = async (
 
       if (rawWrites.length === 0) {
         throw new Error(
-          `${toolCall.tool} requires a non-empty files map. Ensure "arguments.files" is an object mapping absolute file paths to { code: string } or to string contents. Arrays are not accepted.`
+          `${toolCall.tool} requires a non-empty "files" payload: object map path→contents or { path, code }[], see tool catalog.`
         );
       }
 
@@ -539,9 +570,11 @@ export const executeAgentTool = async (
                 : `Only first file written. Call agent.edit once per file (max ${MAX_EDIT_FILES} per call).`,
           }),
         },
-        completedDetail: `Wrote ${writes.length} file${
-          writes.length === 1 ? "" : "s"
-        } across the project workspace.`,
+        completedDetail: `${describeProcessedCount(
+          "write",
+          writeResult.created.length + writeResult.updated.length,
+          rawWrites.length
+        )} Updated the project workspace.`,
         verifiedSignature: null,
       };
     }
@@ -549,7 +582,7 @@ export const executeAgentTool = async (
     case "agent.patch": {
       const rawPath =
         typeof toolCall.arguments?.path === "string"
-          ? normalizeProjectPath(toolCall.arguments.path)
+          ? requireProjectPath(toolCall.arguments.path, "agent.patch path")
           : "";
       const search =
         typeof toolCall.arguments?.search === "string"
@@ -620,11 +653,11 @@ export const executeAgentTool = async (
     case "agent.rename": {
       const from =
         typeof toolCall.arguments?.from === "string"
-          ? normalizeProjectPath(toolCall.arguments.from)
+          ? requireProjectPath(toolCall.arguments.from, "agent.rename from")
           : "";
       const to =
         typeof toolCall.arguments?.to === "string"
-          ? normalizeProjectPath(toolCall.arguments.to)
+          ? requireProjectPath(toolCall.arguments.to, "agent.rename to")
           : "";
 
       if (!from || !to) {
@@ -652,8 +685,8 @@ export const executeAgentTool = async (
     }
 
     case "agent.delete": {
-      const rawTargets = normalizeStringArray(toolCall.arguments?.targets).map((target) =>
-        normalizeProjectPath(target)
+      const rawTargets = normalizeStringArray(toolCall.arguments?.targets).map(
+        (target) => requireProjectPath(target, "agent.delete target")
       );
 
       if (rawTargets.length === 0) {
@@ -676,9 +709,11 @@ export const executeAgentTool = async (
             batchHint: `Only first file deleted. Call agent.delete once per file (max ${MAX_DELETE_FILES} per call).`,
           }),
         },
-        completedDetail: `Deleted ${deleteResult.deleted.length} file${
-          deleteResult.deleted.length === 1 ? "" : "s"
-        } from the project.`,
+        completedDetail: `${describeProcessedCount(
+          "delete",
+          deleteResult.deleted.length,
+          rawTargets.length
+        )} Removed obsolete project files.`,
         verifiedSignature: null,
       };
     }
@@ -774,7 +809,7 @@ export const executeAgentTool = async (
       const nextEntry =
         typeof toolCall.arguments?.entry === "string" &&
         toolCall.arguments.entry.trim().length > 0
-          ? normalizeProjectPath(toolCall.arguments.entry)
+          ? requireProjectPath(toolCall.arguments.entry, "agent.complete entry")
           : project.entry;
       const dependencies = normalizeDependencyMap(toolCall.arguments?.dependencies);
 

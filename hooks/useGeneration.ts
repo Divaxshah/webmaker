@@ -19,12 +19,16 @@ interface GenerateOptions {
 interface ApiMessage {
   role: "user" | "assistant";
   content: string;
+  reasoning_details?: unknown;
 }
 
 const parseStreamEvent = (line: string): GenerationStreamEvent | null => {
   try {
     return JSON.parse(line) as GenerationStreamEvent;
   } catch {
+    if (process.env.NODE_ENV === "development") {
+      console.warn("[useGeneration] dropped malformed stream line", line.slice(0, 120));
+    }
     return null;
   }
 };
@@ -32,10 +36,19 @@ const parseStreamEvent = (line: string): GenerationStreamEvent | null => {
 const toApiMessages = (messages: Message[]): ApiMessage[] => {
   return messages
     .filter((message) => message.role === "user" || message.role === "assistant")
-    .map((message) => ({
-      role: message.role,
-      content: message.content,
-    }));
+    .map((message) => {
+      const base: ApiMessage = {
+        role: message.role,
+        content: message.content,
+      };
+      if (
+        message.role === "assistant" &&
+        message.reasoning_details !== undefined
+      ) {
+        return { ...base, reasoning_details: message.reasoning_details };
+      }
+      return base;
+    });
 };
 
 export const useGeneration = () => {

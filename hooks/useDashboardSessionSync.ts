@@ -8,7 +8,7 @@ import {
   setAppliedServerTimestamp,
 } from "@/lib/device-id";
 import type { DashboardPersistPayload } from "@/lib/dashboard-session-store";
-import type { LuminoModelId } from "@/lib/models";
+import { coerceLuminoModelId, DEFAULT_LUMINO_MODEL } from "@/lib/models";
 import type { Session } from "@/lib/types";
 import { createWorkspaceSnapshot, DEFAULT_ACTIVE_SKILL_IDS, syncProjectToWorkspace } from "@/lib/workspace";
 import { useAppStore } from "@/lib/store";
@@ -88,7 +88,11 @@ export function useDashboardSessionSync(enabled = true) {
           sessions,
           activeSessionId: payload.activeSessionId,
           lastPrompt: payload.lastPrompt,
-          selectedModelId: payload.selectedModelId as LuminoModelId,
+          selectedModelId: coerceLuminoModelId(
+            typeof payload.selectedModelId === "string"
+              ? payload.selectedModelId
+              : DEFAULT_LUMINO_MODEL
+          ),
         });
         setAppliedServerTimestamp(data.updatedAt);
       } catch {

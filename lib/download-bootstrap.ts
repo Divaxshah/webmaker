@@ -17,11 +17,6 @@ const DEV_DEPS: Record<string, string> = {
   vite: "4.2.0",
 };
 
-interface BootstrapPackageJson {
-  dependencies?: Record<string, string>;
-  devDependencies?: Record<string, string>;
-}
-
 /**
  * Returns the set of config/setup files required to run a downloaded project
  * locally (npm install && npm run dev) or build for deploy.
@@ -178,62 +173,6 @@ The built site is in \`dist/\`. Deploy that folder to any static host (Vercel, N
     "postcss.config.js": postcssConfigJs,
     ".gitignore": gitignore,
     "README.md": readme,
-  };
-}
-
-export function getPreviewSandpackConfig(project: GeneratedProject): {
-  files: Record<string, { code: string; hidden?: boolean; active?: boolean }>;
-  dependencies: Record<string, string>;
-  devDependencies: Record<string, string>;
-  entry: string;
-} {
-  const bootstrap = getBootstrapFiles(project);
-  const pkg = JSON.parse(bootstrap["package.json"] ?? "{}") as BootstrapPackageJson;
-  const PREVIEW_LOCKED_PATHS = new Set([
-    "/package.json",
-    "/index.html",
-    "/vite.config.js",
-    "/vite.config.ts",
-    "/tsconfig.json",
-    "/tsconfig.node.json",
-    "/.gitignore",
-    "/README.md",
-  ]);
-  const PREVIEW_OMIT_BOOTSTRAP_PATHS = new Set(["package.json", "vite.config.js"]);
-
-  const files: Record<string, { code: string; hidden?: boolean; active?: boolean }> =
-    Object.fromEntries(
-      Object.entries(bootstrap)
-        .filter(
-          ([path]) =>
-            path !== ".gitignore" &&
-            path !== "README.md" &&
-            !PREVIEW_OMIT_BOOTSTRAP_PATHS.has(path)
-        )
-        .map(([path, code]) => [`/${path.replace(/^\//, "")}`, { code, hidden: true }])
-    );
-
-  for (const [path, file] of Object.entries(project.files)) {
-    if (PREVIEW_LOCKED_PATHS.has(path)) {
-      continue;
-    }
-
-    files[path] = {
-      code: file.code,
-      ...(file.hidden ? { hidden: true } : {}),
-      ...(file.active ? { active: true } : {}),
-    };
-  }
-
-  return {
-    files,
-    dependencies: {
-      ...(pkg.dependencies ?? {}),
-    },
-    devDependencies: {
-      ...(pkg.devDependencies ?? {}),
-    },
-    entry: project.entry,
   };
 }
 

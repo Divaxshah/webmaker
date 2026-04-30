@@ -9,6 +9,7 @@ import { getRuntimeProviderLabel, getRuntimeConfig, type RuntimeProviderMode } f
 import type { GeneratedProject, WorkspaceSnapshot } from "@/lib/types";
 import {
   createWorkspaceSnapshot,
+  DEFAULT_WORKSPACE_ROOT,
   readWorkspaceFiles,
   syncProjectToWorkspace,
   writeWorkspaceFiles,
@@ -92,6 +93,15 @@ const toRelativeDiskPath = (projectPath: string): string => {
 
 const getLocalWorkspaceRoot = (workspaceId: string): string =>
   path.join(WORKSPACE_ROOT, workspaceId.replace(/[^a-zA-Z0-9_-]/g, "_"));
+
+/** Snapshots use `/workspace` like the sandbox; on the host that path is usually not writable. */
+const resolveLocalDiskRoot = (workspace: WorkspaceSnapshot): string => {
+  const root = workspace.runtime.rootPath?.trim() ?? "";
+  if (!root || root === DEFAULT_WORKSPACE_ROOT) {
+    return getLocalWorkspaceRoot(workspace.id);
+  }
+  return root;
+};
 
 const writeProjectToDisk = async (
   rootPath: string,
@@ -357,7 +367,7 @@ class LocalWorkspaceProvider implements WorkspaceProvider {
   async loadWorkspace(workspace: WorkspaceSnapshot): Promise<WorkspaceSnapshot> {
     const rootPath =
       workspace.runtime.provider === "local"
-        ? workspace.runtime.rootPath
+        ? resolveLocalDiskRoot(workspace)
         : getLocalWorkspaceRoot(workspace.id);
     const nextWorkspace: WorkspaceSnapshot = {
       ...workspace,

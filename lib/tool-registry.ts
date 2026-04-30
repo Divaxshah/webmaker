@@ -1,11 +1,6 @@
 import type { AgentToolName } from "@/lib/agent-tools";
 
-export type WebmakerCapabilityName =
-  | AgentToolName
-  | "runtime.run_command"
-  | "runtime.install_dependencies"
-  | "runtime.start_preview"
-  | "runtime.get_logs";
+export type WebmakerCapabilityName = AgentToolName;
 
 export interface WebmakerToolDefinition {
   name: WebmakerCapabilityName;
@@ -96,12 +91,28 @@ const TOOL_DEFINITIONS: WebmakerToolDefinition[] = [
     requiresVerificationAfterRun: false,
   },
   {
+    name: "runtime.sync_workspace",
+    title: "Sync Workspace",
+    description:
+      "Write the in-memory project to the active runtime disk workspace before installs or builds.",
+    mutatesWorkspace: true,
+    requiresVerificationAfterRun: false,
+  },
+  {
     name: "runtime.install_dependencies",
     title: "Install Dependencies",
     description:
       "Install project dependencies in the active runtime workspace.",
     mutatesWorkspace: true,
     requiresVerificationAfterRun: true,
+  },
+  {
+    name: "runtime.verify_build",
+    title: "Verify Build",
+    description:
+      "Run the production build in the runtime workspace; required evidence before agent.complete.",
+    mutatesWorkspace: false,
+    requiresVerificationAfterRun: false,
   },
   {
     name: "runtime.start_preview",
@@ -128,23 +139,29 @@ const TOOL_DEFINITIONS: WebmakerToolDefinition[] = [
   },
 ];
 
-export const getToolDefinitions = (): WebmakerToolDefinition[] =>
-  TOOL_DEFINITIONS.map((tool) => ({ ...tool }));
+export const getToolDefinitions = (
+  runtimeToolsEnabled = true
+): WebmakerToolDefinition[] =>
+  TOOL_DEFINITIONS
+    .filter(
+      (tool) => runtimeToolsEnabled || !tool.name.startsWith("runtime.")
+    )
+    .map((tool) => ({ ...tool }));
 
 export const getToolDefinition = (
   name: WebmakerCapabilityName
 ): WebmakerToolDefinition | undefined =>
   TOOL_DEFINITIONS.find((tool) => tool.name === name);
 
-export const getToolNames = (): AgentToolName[] =>
-  TOOL_DEFINITIONS
+export const getToolNames = (runtimeToolsEnabled = true): AgentToolName[] =>
+  getToolDefinitions(runtimeToolsEnabled)
     .map((tool) => tool.name)
     .filter(
       (toolName): toolName is AgentToolName =>
         toolName.startsWith("agent.") || toolName.startsWith("runtime.")
     );
 
-export const getRuntimeCapabilityNames = (): string[] =>
-  TOOL_DEFINITIONS
+export const getRuntimeCapabilityNames = (runtimeToolsEnabled = true): string[] =>
+  getToolDefinitions(runtimeToolsEnabled)
     .map((tool) => tool.name)
     .filter((toolName) => toolName.startsWith("runtime."));

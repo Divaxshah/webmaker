@@ -12,7 +12,10 @@ import { ResizablePanel } from "@/components/ui/ResizablePanel";
 import { useGeneration } from "@/hooks/useGeneration";
 import { useDashboardSessionSync } from "@/hooks/useDashboardSessionSync";
 import type { LuminoModelId } from "@/lib/models";
-import type { SelectableRuntimeProviderMode } from "@/lib/runtime-config";
+import {
+  areRuntimeToolsEnabled,
+  type SelectableRuntimeProviderMode,
+} from "@/lib/runtime-config";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import {
   getActiveSession,
@@ -33,6 +36,7 @@ const runtimeStatusFetchedSessions = new Set<string>();
 
 export function StudioPage() {
   useDashboardSessionSync(true);
+  const runtimeToolsEnabled = areRuntimeToolsEnabled();
 
   const [mobileTab, setMobileTab] = useState<MobileTab>("chat");
   const [composerValue, setComposerValue] = useState("");
@@ -95,6 +99,9 @@ export function StudioPage() {
   };
 
   const refreshWorkspaceRuntime = useCallback(async () => {
+    if (!runtimeToolsEnabled) {
+      return;
+    }
     const state = useAppStore.getState();
     const session = getActiveSession(state);
     const ws = getActiveSessionWorkspace(state);
@@ -122,10 +129,13 @@ export function StudioPage() {
     if (json.workspace) {
       setWorkspaceSnapshot(json.workspace, session.id);
     }
-  }, [setWorkspaceSnapshot]);
+  }, [runtimeToolsEnabled, setWorkspaceSnapshot]);
 
   const handleRuntimeProviderChange = useCallback(
     (provider: SelectableRuntimeProviderMode) => {
+      if (!runtimeToolsEnabled) {
+        return;
+      }
       const state = useAppStore.getState();
       const session = getActiveSession(state);
       const ws = getActiveSessionWorkspace(state);
@@ -159,7 +169,7 @@ export function StudioPage() {
           // Keep the local selection even if status refresh fails.
         });
     },
-    [setWorkspaceSnapshot]
+    [runtimeToolsEnabled, setWorkspaceSnapshot]
   );
 
   useEffect(() => {
@@ -192,12 +202,15 @@ export function StudioPage() {
   }, []);
 
   useEffect(() => {
+    if (!runtimeToolsEnabled) {
+      return;
+    }
     if (runtimeStatusFetchedSessions.has(activeSessionId)) {
       return;
     }
     runtimeStatusFetchedSessions.add(activeSessionId);
     void refreshWorkspaceRuntime();
-  }, [activeSessionId, refreshWorkspaceRuntime]);
+  }, [activeSessionId, refreshWorkspaceRuntime, runtimeToolsEnabled]);
 
   const chatPanel = (
     <ChatPanel
@@ -233,9 +246,6 @@ export function StudioPage() {
         setComposerFocusToken(createId());
         setMobileTab("chat");
       }}
-      onRuntimeError={(error) => {
-        setRuntimeError(error);
-      }}
     />
   );
 
@@ -266,9 +276,13 @@ export function StudioPage() {
                 </h1>
                 <WorkspaceStatus
                   workspace={workspace}
-                  onRefresh={() => {
-                    void refreshWorkspaceRuntime();
-                  }}
+                  onRefresh={
+                    runtimeToolsEnabled
+                      ? () => {
+                          void refreshWorkspaceRuntime();
+                        }
+                      : undefined
+                  }
                 />
               </div>
             </div>

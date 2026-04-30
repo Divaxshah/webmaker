@@ -144,7 +144,7 @@ If steps 5-7 fail, Cloudflare is still not connected correctly.
 
 1. `GET /api/health` — expect `status: "ok"` when OpenRouter + Redis are configured (degraded is OK if Redis skipped).
 2. Open `/studio`, send a short prompt — generation should stream.
-3. Preview panel should load **Sandpack** for side-by-side preview; use Code → ZIP for local `npm` / deploy.
+3. Preview panel uses **StackBlitz** (WebContainers) for in-browser Vite preview; use Code → ZIP for local `npm` / deploy.
 
 ---
 

@@ -6,10 +6,9 @@
       "properties": {
         "goal": {
           "type": "string",
-          "description": "Short description of the build goal."
+          "description": "Short description of the build goal (optional; a default is used if omitted)."
         }
-      },
-      "required": ["goal"]
+      }
     }
   },
   "agent.inspect": {
@@ -19,7 +18,9 @@
       "properties": {
         "targets": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "Optional absolute project paths to inspect."
         }
       }
@@ -35,69 +36,83 @@
           "description": "Text to search for across the current project."
         }
       },
-      "required": ["query"]
+      "required": [
+        "query"
+      ]
     }
   },
   "agent.read": {
-    "description": "Read specific files for editing context. Pass at most 2–3 paths per call; call again for the next batch.",
+    "description": "Read specific files for editing context.",
     "parameters": {
       "type": "object",
       "properties": {
         "targets": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "Absolute project paths to read (max 2–3 per call)."
         }
       },
-      "required": ["targets"]
+      "required": [
+        "targets"
+      ]
     }
   },
   "agent.create": {
-    "description": "Create new frontend files. Pass at most 2–3 files per call; call again for the next batch.",
+    "description": "Create new frontend files in the current workspace.",
     "parameters": {
       "type": "object",
       "properties": {
         "intent": {
           "type": "string",
-          "description": "Short reason for the new files."
+          "description": "Short reason for the new files (recommended)."
         },
         "files": {
           "type": "object",
-          "description": "Map of absolute project paths to full file contents (max 2–3 entries). Example: { \"/src/App.tsx\": { \"code\": \"import React...\" } }"
+          "description": "Map of absolute project paths to full file contents (string or { code }). Arrays of { path, code } are also accepted by the runtime."
         },
         "targets": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "Optional path list matching the written files."
         }
       },
-      "required": ["intent", "files"]
+      "required": [
+        "files"
+      ]
     }
   },
   "agent.edit": {
-    "description": "Update one existing frontend file. One file per call; call agent.edit again for each additional file.",
+    "description": "Update an existing frontend file with full file contents.",
     "parameters": {
       "type": "object",
       "properties": {
         "intent": {
           "type": "string",
-          "description": "Short reason for the edits."
+          "description": "Short reason for the edits (recommended)."
         },
         "files": {
           "type": "object",
-          "description": "Map of one absolute path to full file contents. Example: { \"/src/App.tsx\": { \"code\": \"...\" } }"
+          "description": "Map of one absolute path to full file contents. Arrays of { path, code } are also accepted."
         },
         "targets": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "Optional path list matching the written file."
         }
       },
-      "required": ["intent", "files"]
+      "required": [
+        "files"
+      ]
     }
   },
   "agent.patch": {
-    "description": "Apply a targeted search-and-replace to one existing file (first occurrence, or all when replaceAll is true).",
+    "description": "Apply a targeted search-and-replace edit to one existing file without rewriting the whole file.",
     "parameters": {
       "type": "object",
       "properties": {
@@ -118,7 +133,10 @@
           "description": "Replace every occurrence instead of only the first."
         }
       },
-      "required": ["path", "search"]
+      "required": [
+        "path",
+        "search"
+      ]
     }
   },
   "agent.rename": {
@@ -135,91 +153,102 @@
           "description": "New absolute project path."
         }
       },
-      "required": ["from", "to"]
+      "required": [
+        "from",
+        "to"
+      ]
     }
   },
   "agent.delete": {
-    "description": "Delete one obsolete file. One path per call; call again for each additional file.",
+    "description": "Delete obsolete files from the current workspace.",
     "parameters": {
       "type": "object",
       "properties": {
         "targets": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "Exactly one absolute project path to remove."
         }
       },
-      "required": ["targets"]
+      "required": [
+        "targets"
+      ]
     }
   },
   "agent.verify": {
-    "description": "Run local consistency checks before runtime verification (entry exists, imports resolve, dependencies declared).",
+    "description": "Run consistency checks before completion.",
     "parameters": {
       "type": "object",
       "properties": {
         "checks": {
           "type": "array",
-          "items": { "type": "string" },
-          "description": "Optional named checks such as entry exists or imports resolve."
+          "items": {
+            "type": "string"
+          },
+          "description": "Optional named checks. Valid labels (case-insensitive): entry exists, imports resolve, project has files, dependencies align, entry bootstrap exists."
         }
       }
     }
   },
   "runtime.sync_workspace": {
-    "description": "Write the current generated project to the active runtime workspace. For Cloudflare Sandbox, this means staging the project for SDK-backed sync/orchestration.",
+    "description": "Write the in-memory project to the active runtime disk workspace before installs or builds.",
     "parameters": {
       "type": "object",
       "properties": {}
     }
   },
   "runtime.install_dependencies": {
-    "description": "Install dependencies in the active runtime workspace. Local runtime uses npm install. Cloudflare Sandbox should map to sandbox.exec('npm install').",
+    "description": "Install project dependencies in the active runtime workspace.",
     "parameters": {
       "type": "object",
       "properties": {}
     }
   },
   "runtime.run_command": {
-    "description": "Run a command in the active runtime workspace. Local runtime allows only a fixed npm allowlist. Cloudflare Sandbox should map one-shot commands to sandbox.exec(command, options).",
+    "description": "Run an allowed command in the active runtime workspace.",
     "parameters": {
       "type": "object",
       "properties": {
         "command": {
           "type": "string",
-          "description": "For local runtime the allowed commands are: npm install, npm run build, npm run dev, npm test, or npm run lint. For Cloudflare Sandbox, use the same command strings but expect sandbox.exec(command, options) semantics behind the tool."
+          "description": "For local runtime: npm install, npm run build, npm run dev, npm test, or npm run lint. Cloudflare: passed to sandbox.exec."
         }
       },
-      "required": ["command"]
+      "required": [
+        "command"
+      ]
     }
   },
   "runtime.verify_build": {
-    "description": "Run the project production build and return stdout, stderr, and structured errors. Local runtime uses npm run build. Cloudflare Sandbox should map to sandbox.exec('npm run build').",
+    "description": "Run the production build in the runtime workspace; required evidence before agent.complete.",
     "parameters": {
       "type": "object",
       "properties": {}
     }
   },
   "runtime.start_preview": {
-    "description": "Start the runtime dev server and return a preview URL. Local runtime starts npm run dev. Cloudflare Sandbox should use sandbox.startProcess('npm run dev'), wait for the serving port, then expose it.",
+    "description": "Start the runtime dev server and expose a preview URL.",
     "parameters": {
       "type": "object",
       "properties": {}
     }
   },
   "runtime.get_logs": {
-    "description": "Read captured runtime logs for the active preview process or last command. Cloudflare Sandbox should map to sandbox.getProcessLogs(processId) or sandbox.streamProcessLogs(processId).",
+    "description": "Read captured output from the active runtime process or last command.",
     "parameters": {
       "type": "object",
       "properties": {
         "processId": {
           "type": "string",
-          "description": "Optional process id returned by runtime.start_preview."
+          "description": "Optional process id returned by runtime.start_preview (local preview ids look like {workspaceId}-preview)."
         }
       }
     }
   },
   "agent.complete": {
-    "description": "Finish the request and commit final project metadata.",
+    "description": "Commit final metadata and finish the generation cycle.",
     "parameters": {
       "type": "object",
       "properties": {
@@ -240,7 +269,9 @@
           "description": "Dependency map to merge into the project."
         }
       },
-      "required": ["summary"]
+      "required": [
+        "summary"
+      ]
     }
   }
 }

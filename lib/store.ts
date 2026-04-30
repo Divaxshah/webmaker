@@ -10,7 +10,11 @@ import type {
   Session,
   WorkspaceSnapshot,
 } from "@/lib/types";
-import { DEFAULT_LUMINO_MODEL, type LuminoModelId } from "@/lib/models";
+import {
+  coerceLuminoModelId,
+  DEFAULT_LUMINO_MODEL,
+  type LuminoModelId,
+} from "@/lib/models";
 import { createId, STARTER_PROJECT } from "@/lib/utils";
 import {
   coerceWorkspaceToSupportedProvider,
@@ -237,6 +241,10 @@ export const useAppStore = create<AppState>()(
           ...persisted,
           sessions,
           activeSessionId,
+        selectedModelId:
+          typeof persisted.selectedModelId === "string"
+            ? coerceLuminoModelId(persisted.selectedModelId)
+            : currentState.selectedModelId,
         };
       },
     }

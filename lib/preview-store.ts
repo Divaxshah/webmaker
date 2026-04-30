@@ -30,8 +30,12 @@ export function generatePreviewId(): string {
 export async function storePreview(id: string, data: unknown): Promise<void> {
   const r = getRedis();
   if (r) {
-    await r.set(previewKey(id), data as object, { ex: PREVIEW_TTL_SEC });
-    return;
+    try {
+      await r.set(previewKey(id), data as object, { ex: PREVIEW_TTL_SEC });
+      return;
+    } catch (e) {
+      console.warn("[preview-store] Redis set failed, using filesystem", e);
+    }
   }
   await ensureDir();
   await writeFile(join(STORE_DIR, `${id}.json`), JSON.stringify(data), "utf8");
@@ -42,8 +46,12 @@ export async function retrievePreview(id: string): Promise<unknown | null> {
     if (!id || typeof id !== "string") return null;
     const r = getRedis();
     if (r) {
-      const raw = await r.get(previewKey(id));
-      return raw ?? null;
+      try {
+        const raw = await r.get(previewKey(id));
+        if (raw != null) return raw;
+      } catch (e) {
+        console.warn("[preview-store] Redis get failed, trying filesystem", e);
+      }
     }
     const raw = await readFile(join(STORE_DIR, `${id}.json`), "utf8");
     return JSON.parse(raw) as unknown;

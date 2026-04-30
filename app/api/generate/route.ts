@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import type { GenerationStreamEvent } from "@/lib/agent";
 import { runAgentLoop } from "@/lib/agent-runtime";
-import { DEFAULT_LUMINO_MODEL, isLuminoModel } from "@/lib/models";
+import { coerceLuminoModelId, DEFAULT_LUMINO_MODEL } from "@/lib/models";
 import { normalizeProject } from "@/lib/project";
 import type { GeneratedProject, WorkspaceSnapshot } from "@/lib/types";
 
@@ -66,10 +66,9 @@ export async function POST(request: NextRequest) {
         return base;
       });
 
-    const requestedModel = body.modelId;
     const modelId =
-      requestedModel && isLuminoModel(requestedModel)
-        ? requestedModel
+      typeof body.modelId === "string"
+        ? coerceLuminoModelId(body.modelId)
         : DEFAULT_LUMINO_MODEL;
 
     const encoder = new TextEncoder();

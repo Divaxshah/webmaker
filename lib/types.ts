@@ -38,6 +38,8 @@ export interface Message {
   role: MessageRole;
   content: string;
   status: MessageStatus;
+  /** Optional; forwarded to /api/generate for reasoning-capable models. */
+  reasoning_details?: unknown;
   tokenCount?: number;
   latencyMs?: number;
   codeSnapshot?: string;
