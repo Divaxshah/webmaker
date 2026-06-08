@@ -1,5 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
 import { getBootstrapFiles } from "@/lib/download-bootstrap";
@@ -76,9 +76,68 @@ interface ManagedProcess {
 }
 
 const managedProcesses = new Map<string, ManagedProcess>();
+const workspaceCommandTails = new Map<string, Promise<void>>();
+
+const withWorkspaceCommandLock = async <T>(
+  workspaceId: string,
+  fn: () => Promise<T>
+): Promise<T> => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const previous = workspaceCommandTails.get(workspaceId) ?? Promise.resolve();
+  workspaceCommandTails.set(workspaceId, previous.then(() => gate));
+  await previous;
+  try {
+    return await fn();
+  } finally {
+    release();
+  }
+};
+
+const installLooksCorrupted = (output: string): boolean =>
+  output.includes("ETXTBSY") ||
+  output.includes("ENOTEMPTY") ||
+  output.includes("ENOENT: Cannot cd into");
 
 const appendOutput = (current: string, chunk: string): string =>
   `${current}${chunk}`.slice(-MAX_OUTPUT_CHARS);
+
+const pathExists = async (target: string): Promise<boolean> => {
+  try {
+    await access(target);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const waitForDevServer = (
+  port: number,
+  managed: ManagedProcess,
+  timeoutMs = 45_000
+): Promise<boolean> =>
+  new Promise((resolve) => {
+    const started = Date.now();
+    const tick = () => {
+      const logs = managed.logs;
+      if (
+        logs.includes(`127.0.0.1:${port}`) ||
+        logs.includes(`localhost:${port}`) ||
+        logs.includes("ready in")
+      ) {
+        resolve(true);
+        return;
+      }
+      if (Date.now() - started > timeoutMs) {
+        resolve(false);
+        return;
+      }
+      setTimeout(tick, 400);
+    };
+    tick();
+  });
 
 const toRelativeDiskPath = (projectPath: string): string => {
   const normalized = normalizeProjectPath(projectPath).replace(/^\/+/, "");
@@ -187,7 +246,7 @@ const parseIssues = (
   ];
 };
 
-const runNpmCommand = async (
+const runNpmCommandOnce = async (
   workspace: WorkspaceSnapshot,
   command: string,
   timeoutMs = COMMAND_TIMEOUT_MS
@@ -321,6 +380,31 @@ const runNpmCommand = async (
     });
   });
 };
+
+const runNpmCommand = async (
+  workspace: WorkspaceSnapshot,
+  command: string,
+  timeoutMs = COMMAND_TIMEOUT_MS
+): Promise<RuntimeResult> =>
+  withWorkspaceCommandLock(workspace.id, async () => {
+    let result = await runNpmCommandOnce(workspace, command, timeoutMs);
+
+    if (
+      !result.ok &&
+      command.includes("install") &&
+      installLooksCorrupted(result.output ?? "")
+    ) {
+      const nodeModulesPath = path.join(workspace.runtime.rootPath, "node_modules");
+      try {
+        await rm(nodeModulesPath, { recursive: true, force: true });
+      } catch {
+        // Best-effort cleanup before retry.
+      }
+      result = await runNpmCommandOnce(workspace, command, timeoutMs);
+    }
+
+    return result;
+  });
 
 const findAvailablePort = async (): Promise<number> =>
   new Promise((resolve, reject) => {
@@ -456,8 +540,22 @@ class LocalWorkspaceProvider implements WorkspaceProvider {
   async startPreview(
     workspace: WorkspaceSnapshot
   ): Promise<RuntimeResult<{ processId: string; url: string }>> {
-    const loaded = await this.loadWorkspace(workspace);
+    let loaded = await this.loadWorkspace(workspace);
     await writeProjectToDisk(loaded.runtime.rootPath, loaded.project);
+
+    const nodeModulesPath = path.join(loaded.runtime.rootPath, "node_modules");
+    if (!(await pathExists(nodeModulesPath))) {
+      const installResult = await runNpmCommand(loaded, "npm install", 180_000);
+      loaded = installResult.workspace;
+      if (!installResult.ok) {
+        return {
+          ok: false,
+          workspace: loaded,
+          error: installResult.error ?? "Failed to install dependencies for preview.",
+          output: installResult.output,
+        };
+      }
+    }
 
     const port = await findAvailablePort();
     const processId = `${loaded.id}-preview`;
@@ -522,6 +620,8 @@ class LocalWorkspaceProvider implements WorkspaceProvider {
     child.on("error", (error) => {
       managed.logs = appendOutput(managed.logs, `\nPreview process error: ${error.message}`);
     });
+
+    await waitForDevServer(port, managed);
 
     const url = `http://127.0.0.1:${port}`;
     const nextWorkspace: WorkspaceSnapshot = {

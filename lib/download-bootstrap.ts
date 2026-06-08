@@ -10,11 +10,25 @@ const DEV_DEPS: Record<string, string> = {
   "@types/react-dom": "^19.0.3",
   "@vitejs/plugin-react": "^4.3.4",
   autoprefixer: "10.4.20",
-  "esbuild-wasm": "^0.17.12",
   postcss: "8.4.49",
   tailwindcss: "3.4.15",
-  typescript: "^4.9.5",
+  typescript: "^5.4.5",
   vite: "4.2.0",
+};
+
+const PINNED_DEPENDENCY_VERSIONS: Record<string, string> = {
+  "framer-motion": "^11.0.0",
+  "lucide-react": "^0.460.0",
+  "react-router-dom": "^6.28.0",
+  clsx: "^2.1.1",
+  "tailwind-merge": "^2.5.4",
+};
+
+const normalizeDependencyVersion = (name: string, version: string): string => {
+  if (version === "latest") {
+    return PINNED_DEPENDENCY_VERSIONS[name] ?? "^18.0.0";
+  }
+  return version;
 };
 
 /**
@@ -27,10 +41,12 @@ export function getBootstrapFiles(project: GeneratedProject): Record<string, str
     .replace(/\s+/g, "-")
     .replace(/[^a-z0-9-]/g, "") || "webmaker-project";
 
-  const dependencies = {
-    ...BASE_DEPS,
-    ...project.dependencies,
-  };
+  const dependencies = Object.fromEntries(
+    Object.entries({
+      ...BASE_DEPS,
+      ...project.dependencies,
+    }).map(([name, version]) => [name, normalizeDependencyVersion(name, version)])
+  );
 
   const packageJson = JSON.stringify(
     {

@@ -1,39 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Square } from "lucide-react";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { PreviewPanel } from "@/components/preview/PreviewPanel";
-import { RuntimeControls } from "@/components/studio/RuntimeControls";
 import { SessionRail } from "@/components/studio/SessionRail";
-import { WorkspaceStatus } from "@/components/studio/WorkspaceStatus";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { ResizablePanel } from "@/components/ui/ResizablePanel";
 import { useGeneration } from "@/hooks/useGeneration";
 import { useDashboardSessionSync } from "@/hooks/useDashboardSessionSync";
-import {
-  areRuntimeToolsEnabled,
-  type SelectableRuntimeProviderMode,
-} from "@/lib/runtime-config";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import {
-  getActiveSession,
   getActiveSessionMessages,
   getActiveSessionProject,
-  getActiveSessionWorkspace,
   useAppStore,
 } from "@/lib/store";
 import { createId } from "@/lib/utils";
-import { setWorkspaceRuntimeProvider } from "@/lib/workspace";
 
 type MobileTab = "chat" | "workspace";
 
-/** Dedupe initial runtime status when React Strict Mode mounts twice (dev). */
-const runtimeStatusFetchedSessions = new Set<string>();
-
 export function StudioPage() {
   useDashboardSessionSync(true);
-  const runtimeToolsEnabled = areRuntimeToolsEnabled();
 
   const [mobileTab, setMobileTab] = useState<MobileTab>("chat");
   const [composerValue, setComposerValue] = useState("");
@@ -46,16 +33,16 @@ export function StudioPage() {
   const streamingText = useAppStore((state) => state.streamingText);
   const lastPrompt = useAppStore((state) => state.lastPrompt);
   const runtimeError = useAppStore((state) => state.runtimeError);
-  const workspace = useAppStore(getActiveSessionWorkspace);
 
   const messages = useAppStore(getActiveSessionMessages);
   const project = useAppStore(getActiveSessionProject);
-  const activeSession = useAppStore(getActiveSession);
+  const activeSession = useAppStore((state) =>
+    state.sessions.find((session) => session.id === state.activeSessionId)
+  );
 
   const deleteSession = useAppStore((state) => state.deleteSession);
   const setRuntimeError = useAppStore((state) => state.setRuntimeError);
   const setActiveSessionId = useAppStore((state) => state.setActiveSessionId);
-  const setWorkspaceSnapshot = useAppStore((state) => state.setWorkspaceSnapshot);
   const newSession = useAppStore((state) => state.newSession);
 
   const fixPrompt = useMemo(() => {
@@ -83,91 +70,6 @@ export function StudioPage() {
     setMobileTab("chat");
   };
 
-  const refreshWorkspaceRuntime = useCallback(async () => {
-    if (!runtimeToolsEnabled) {
-      return;
-    }
-    const state = useAppStore.getState();
-    const session = getActiveSession(state);
-    const ws = getActiveSessionWorkspace(state);
-    if (!session || !ws) return;
-
-    const response = await fetch("/api/runtime", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        action: "status",
-        workspace: ws,
-      }),
-    });
-
-    if (!response.ok) {
-      return;
-    }
-
-    const json = (await response.json()) as {
-      workspace?: typeof ws;
-      error?: string;
-    };
-    if (json.workspace) {
-      setWorkspaceSnapshot(json.workspace, session.id);
-    }
-  }, [runtimeToolsEnabled, setWorkspaceSnapshot]);
-
-  const handleRuntimeProviderChange = useCallback(
-    (provider: SelectableRuntimeProviderMode) => {
-      if (!runtimeToolsEnabled) {
-        return;
-      }
-      const state = useAppStore.getState();
-      const session = getActiveSession(state);
-      const ws = getActiveSessionWorkspace(state);
-      if (!session || !ws) return;
-
-      const nextWorkspace = setWorkspaceRuntimeProvider(ws, provider);
-      setWorkspaceSnapshot(nextWorkspace, session.id);
-      void fetch("/api/runtime", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          action: "status",
-          workspace: nextWorkspace,
-        }),
-      })
-        .then(async (response) => {
-          if (!response.ok) {
-            return;
-          }
-
-          const json = (await response.json()) as {
-            workspace?: typeof nextWorkspace;
-          };
-          if (json.workspace) {
-            setWorkspaceSnapshot(json.workspace, session.id);
-          }
-        })
-        .catch(() => {
-          // Keep the local selection even if status refresh fails.
-        });
-    },
-    [runtimeToolsEnabled, setWorkspaceSnapshot]
-  );
-
-  useEffect(() => {
-    if (!runtimeToolsEnabled) {
-      return;
-    }
-    if (runtimeStatusFetchedSessions.has(activeSessionId)) {
-      return;
-    }
-    runtimeStatusFetchedSessions.add(activeSessionId);
-    void refreshWorkspaceRuntime();
-  }, [activeSessionId, refreshWorkspaceRuntime, runtimeToolsEnabled]);
-
   const chatPanel = (
     <ChatPanel
       messages={messages}
@@ -186,7 +88,6 @@ export function StudioPage() {
   const previewPanel = (
     <PreviewPanel
       project={project}
-      workspace={workspace}
       runtimeError={runtimeError}
       isGenerating={isGenerating}
       onDismissError={() => setRuntimeError(null)}
@@ -221,20 +122,10 @@ export function StudioPage() {
               <div className="h-8 w-8 bg-primary text-primary-foreground flex items-center justify-center font-display text-lg leading-none rounded-xl rotate-3">
                 W
               </div>
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col">
                 <h1 className="font-display text-xl tracking-tight text-foreground font-bold">
                   {project.title || "New Project"}
                 </h1>
-                <WorkspaceStatus
-                  workspace={workspace}
-                  onRefresh={
-                    runtimeToolsEnabled
-                      ? () => {
-                          void refreshWorkspaceRuntime();
-                        }
-                      : undefined
-                  }
-                />
               </div>
             </div>
 
@@ -305,19 +196,8 @@ export function StudioPage() {
                 {mobileTab === "chat" ? (
                   chatPanel
                 ) : (
-                  <div className="flex h-full min-h-0 flex-col gap-3 p-3">
-                    <RuntimeControls
-                      workspace={workspace}
-                      selectedProvider={
-                        workspace?.runtime.provider === "cloudflare-sandbox"
-                          ? "cloudflare-sandbox"
-                          : "local"
-                      }
-                      onProviderChange={handleRuntimeProviderChange}
-                    />
-                    <div className="min-h-0 flex-1 overflow-hidden">
-                      {previewPanel}
-                    </div>
+                  <div className="h-full min-h-0 overflow-hidden">
+                    {previewPanel}
                   </div>
                 )}
               </div>
@@ -333,19 +213,8 @@ export function StudioPage() {
                     </div>
                   }
                   right={
-                    <div className="h-full min-h-0 min-w-0 flex-1 overflow-hidden p-2 pl-0 flex flex-col gap-3">
-                        <RuntimeControls
-                          workspace={workspace}
-                          selectedProvider={
-                            workspace?.runtime.provider === "cloudflare-sandbox"
-                              ? "cloudflare-sandbox"
-                              : "local"
-                          }
-                          onProviderChange={handleRuntimeProviderChange}
-                        />
-                      <div className="min-h-0 flex-1 overflow-hidden">
-                        {previewPanel}
-                      </div>
+                    <div className="h-full min-h-0 min-w-0 flex-1 overflow-hidden p-2 pl-0">
+                      {previewPanel}
                     </div>
                   }
                   initialWidth={450}
@@ -357,7 +226,7 @@ export function StudioPage() {
           </div>
         </SidebarInset>
         <span suppressHydrationWarning className="sr-only">
-          Session: {activeSession.id}
+          Session: {activeSession?.id ?? activeSessionId}
         </span>
       </main>
     </SidebarProvider>

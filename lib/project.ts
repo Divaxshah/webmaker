@@ -458,6 +458,22 @@ export const createStarterProject = (): GeneratedProject => ({
   files: STARTER_FILES,
 });
 
+const PLACEHOLDER_APP_MARKER = "Ready to build";
+
+/** True when the project is still the empty shell shown before the first generation. */
+export const isPlaceholderProject = (project: GeneratedProject): boolean => {
+  const filePaths = Object.keys(project.files);
+  if (filePaths.length === 0) {
+    return true;
+  }
+
+  const appCode = project.files["/src/App.tsx"]?.code ?? "";
+  return appCode.includes(PLACEHOLDER_APP_MARKER);
+};
+
+export const isProjectReadyForPreview = (project: GeneratedProject): boolean =>
+  !isPlaceholderProject(project);
+
 export const normalizeProjectPath = (value: string): string => {
   const cleaned = value.replace(/\\/g, "/").trim();
   if (!cleaned) {

@@ -3,7 +3,7 @@
 import { useCallback, useRef } from "react";
 import { buildFallbackActivities, type GenerationStreamEvent } from "@/lib/agent";
 import { createId } from "@/lib/utils";
-import type { GeneratedProject, Message } from "@/lib/types";
+import type { Message } from "@/lib/types";
 import {
   getActiveSession,
   getActiveSessionMessages,
@@ -48,45 +48,6 @@ const toApiMessages = (messages: Message[]): ApiMessage[] => {
       }
       return base;
     });
-};
-
-const shouldAutoStartPreview = (project: GeneratedProject): boolean =>
-  project.title !== "New Workspace" &&
-  project.title !== "Webmaker Starter" &&
-  Object.keys(project.files).length > 0;
-
-const startRuntimePreview = async (sessionId: string) => {
-  const session = getActiveSession(useAppStore.getState());
-  if (!session?.workspace || !shouldAutoStartPreview(session.currentProject)) {
-    return;
-  }
-
-  try {
-    const response = await fetch("/api/runtime", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        action: "start_preview",
-        workspace: session.workspace,
-      }),
-    });
-
-    if (!response.ok) {
-      return;
-    }
-
-    const json = (await response.json()) as {
-      workspace?: typeof session.workspace;
-    };
-
-    if (json.workspace) {
-      useAppStore.getState().setWorkspaceSnapshot(json.workspace, sessionId);
-    }
-  } catch {
-    // StackBlitz remains available if the local runtime preview cannot start.
-  }
 };
 
 export const useGeneration = () => {
@@ -309,10 +270,6 @@ export const useGeneration = () => {
           }),
           activeSession.id
         );
-
-        if (!requestWasCancelled) {
-          void startRuntimePreview(activeSession.id);
-        }
       } catch (error) {
         const isAbort =
           error instanceof DOMException && error.name === "AbortError";

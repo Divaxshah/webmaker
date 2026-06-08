@@ -79,6 +79,9 @@ export function StackBlitzFrame({ project, refreshKey = 0 }: StackBlitzFrameProp
             openFile: def.openFile,
             view: "preview",
             height: "100%",
+            hideExplorer: true,
+            hideNavigation: true,
+            terminalHeight: 0,
           }
         );
       } catch (e) {

@@ -1,22 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { BrowserPreviewConsoleNotice } from "@/components/preview/BrowserPreviewConsoleNotice";
 import { ErrorBanner } from "@/components/preview/ErrorBanner";
 import { StackBlitzFrameWithRetry } from "@/components/preview/StackBlitzFrame";
 import { CodeViewer } from "@/components/preview/CodeViewer";
 import { ConsoleView } from "@/components/preview/ConsoleView";
 import { TabBar, type PreviewTab } from "@/components/preview/TabBar";
-import { getProjectPrimaryFile } from "@/lib/project";
+import { getProjectPrimaryFile, isPlaceholderProject } from "@/lib/project";
 import { getPreviewSessionKey } from "@/lib/preview-session-key";
-import type { GeneratedProject, RuntimeErrorState, WorkspaceSnapshot } from "@/lib/types";
-import { Cpu, ExternalLink, Link2, Loader2, AlertTriangle, RefreshCw } from "lucide-react";
+import { getStackBlitzEmbedDefinition } from "@/lib/stackblitz-project";
+import type { GeneratedProject, RuntimeErrorState } from "@/lib/types";
+import { Cpu, ExternalLink, Link2, Loader2, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 
 interface PreviewPanelProps {
   project: GeneratedProject;
-  workspace?: WorkspaceSnapshot;
   runtimeError: RuntimeErrorState | null;
   isGenerating?: boolean;
   onDismissError: () => void;
@@ -26,7 +25,6 @@ interface PreviewPanelProps {
 
 export function PreviewPanel({
   project,
-  workspace,
   runtimeError,
   isGenerating,
   onDismissError,
@@ -34,7 +32,6 @@ export function PreviewPanel({
   onShareError,
 }: PreviewPanelProps) {
   const [activeTab, setActiveTab] = useState<PreviewTab>("preview");
-  const [previewSource, setPreviewSource] = useState<"live" | "stackblitz">("live");
   const [activeFile, setActiveFile] = useState(() => getProjectPrimaryFile(project));
 
   useEffect(() => {
@@ -48,68 +45,41 @@ export function PreviewPanel({
   }, [project.files, runtimeError?.filePath]);
 
   const previewSessionKey = useMemo(() => getPreviewSessionKey(project), [project]);
-
-  const isStarterProject = project.title === "New Workspace" || project.title === "Webmaker Starter";
+  const isStarterProject = isPlaceholderProject(project);
 
   const [openingPreview, setOpeningPreview] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
 
-  const runtimePreviewUrl = workspace?.runtime.preview.url;
-  const liveSandboxUrl =
-    runtimePreviewUrl && /^https?:\/\//i.test(runtimePreviewUrl.trim())
-      ? runtimePreviewUrl.trim()
-      : null;
-
-  useEffect(() => {
-    if (!liveSandboxUrl) {
-      setPreviewSource("stackblitz");
-    }
-  }, [liveSandboxUrl]);
-
   const retryPreview = useCallback(() => {
     setPreviewRefreshKey((k) => k + 1);
   }, []);
 
   const openPreview = useCallback(async () => {
-    if (liveSandboxUrl) {
-      window.open(liveSandboxUrl, "_blank", "noopener,noreferrer");
-      return;
-    }
-
     setOpeningPreview(true);
     try {
-      const res = await fetch("/api/preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ project }),
-      });
-      const json = (await res.json()) as { id?: string; url?: string };
-      if (json.id) {
-        try {
-          window.localStorage.setItem(`wm-preview-${json.id}`, JSON.stringify(project));
-        } catch (e) {
-          console.warn("Could not save preview to localStorage", e);
+      const sdk = (await import("@stackblitz/sdk")).default;
+      const def = getStackBlitzEmbedDefinition(project);
+      await sdk.openProject(
+        {
+          title: def.title,
+          description: def.description,
+          template: def.template,
+          files: def.files,
+        },
+        {
+          openFile: def.openFile,
+          view: "preview",
+          newWindow: true,
         }
-      }
-      if (json.url) {
-        setPreviewUrl(json.url);
-        window.open(json.url, "_blank", "noopener,noreferrer");
-      }
+      );
     } finally {
       setOpeningPreview(false);
     }
-  }, [project, liveSandboxUrl]);
+  }, [project]);
 
   const copyPreviewLink = useCallback(async () => {
-    if (liveSandboxUrl) {
-      await navigator.clipboard.writeText(liveSandboxUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-      return;
-    }
-
     let url = previewUrl;
     if (!url) {
       setOpeningPreview(true);
@@ -140,7 +110,7 @@ export function PreviewPanel({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
-  }, [project, previewUrl, liveSandboxUrl]);
+  }, [project, previewUrl]);
 
   if (isStarterProject) {
     if (isGenerating) {
@@ -216,22 +186,12 @@ export function PreviewPanel({
         }`}
       >
         <div className="flex h-full min-h-0 flex-col">
-          {liveSandboxUrl && previewSource === "live" ? (
-            <iframe
-              key={`${liveSandboxUrl}-${previewRefreshKey}`}
-              title="Live preview"
-              src={liveSandboxUrl}
-              className="h-full min-h-0 w-full flex-1 border-0 bg-background"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-            />
-          ) : (
-            <StackBlitzFrameWithRetry
-              key={`${previewSessionKey}-${previewRefreshKey}`}
-              project={project}
-              refreshKey={previewRefreshKey}
-              onRetryFullRemount={retryPreview}
-            />
-          )}
+          <StackBlitzFrameWithRetry
+            key={`${previewSessionKey}-${previewRefreshKey}`}
+            project={project}
+            refreshKey={previewRefreshKey}
+            onRetryFullRemount={retryPreview}
+          />
         </div>
       </div>
 
@@ -254,11 +214,7 @@ export function PreviewPanel({
           activeTab === "console" ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
         }`}
       >
-        {liveSandboxUrl && previewSource === "live" ? (
-          <BrowserPreviewConsoleNotice />
-        ) : (
-          <ConsoleView />
-        )}
+        <ConsoleView />
       </div>
     </div>
   );
@@ -273,43 +229,11 @@ export function PreviewPanel({
             <div className="bg-primary text-primary-foreground px-3 py-1.5 rounded-full font-bold text-xs shadow-lg shadow-primary/20">
               {Object.keys(project.files).length} Files
             </div>
-            {workspace && (
-              <div className="rounded-full border border-border bg-background px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
-                {workspace.runtime.providerLabel ?? workspace.runtime.provider}
-              </div>
-            )}
-            {liveSandboxUrl ? (
-              <div className="flex rounded-full border border-border bg-secondary/50 p-0.5">
-                <button
-                  type="button"
-                  onClick={() => setPreviewSource("live")}
-                  className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] transition ${
-                    previewSource === "live"
-                      ? "bg-foreground text-background shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Live iframe
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPreviewSource("stackblitz")}
-                  className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] transition ${
-                    previewSource === "stackblitz"
-                      ? "bg-foreground text-background shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                  title="Runs Vite in-browser via StackBlitz WebContainers."
-                >
-                  StackBlitz
-                </button>
-              </div>
-            ) : null}
             <Button
               variant="outline"
               size="sm"
               onClick={retryPreview}
-              title="Refresh preview (reload if blank or failed)"
+              title="Refresh StackBlitz preview"
               className="rounded-xl border-border bg-background hover:bg-secondary text-foreground h-8 w-8 p-0 transition-all shadow-sm"
             >
               <RefreshCw size={13} />
@@ -335,7 +259,7 @@ export function PreviewPanel({
               size="sm"
               onClick={() => void openPreview()}
               disabled={openingPreview}
-              title="Open preview in new tab"
+              title="Open StackBlitz preview in a new tab"
               className="rounded-xl bg-primary text-primary-foreground h-8 px-3 text-xs font-bold transition-all shadow-lg shadow-primary/20 gap-1.5"
             >
               {openingPreview ? (
@@ -347,22 +271,6 @@ export function PreviewPanel({
             </Button>
           </div>
         </div>
-
-        {runtimePreviewUrl ? (
-          <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border-y border-emerald-500/20 text-emerald-700 dark:text-emerald-400/90 text-xs">
-            <Link2 className="size-3.5 shrink-0 mt-0.5" />
-            <p className="leading-snug">Runtime preview: {runtimePreviewUrl}</p>
-          </div>
-        ) : null}
-
-        {!liveSandboxUrl ? (
-          <div className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 border-y border-amber-500/20 text-amber-700 dark:text-amber-400/90 text-xs">
-            <AlertTriangle className="size-3.5 shrink-0 mt-0.5" />
-            <p className="leading-snug">
-              StackBlitz loads WebContainers in your browser (first run may install npm deps). Use Refresh if the preview stalls.
-            </p>
-          </div>
-        ) : null}
 
         <div className="relative flex min-h-0 flex-1 flex-col bg-background/50 preview-panel-wrapper rounded-none overflow-hidden">
           <style>{`

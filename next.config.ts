@@ -26,6 +26,17 @@ const nextConfig: NextConfig = {
     "127.0.0.1",
     "192.168.29.74",
   ],
+  async headers() {
+    const crossOriginIsolation = [
+      { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
+      { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+    ];
+
+    return [
+      { source: "/studio", headers: crossOriginIsolation },
+      { source: "/studio/:path*", headers: crossOriginIsolation },
+    ];
+  },
 };
 
 export default nextConfig;
