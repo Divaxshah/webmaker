@@ -448,6 +448,16 @@ interface RawProjectShape {
   files?: unknown;
 }
 
+/** Empty workspace — Hermes scaffolds via the create-new-project skill. */
+export const createEmptyProject = (): GeneratedProject => ({
+  title: "New Workspace",
+  summary: "Hermes will scaffold this project from your prompt.",
+  framework: "react-ts",
+  entry: DEFAULT_ENTRY,
+  dependencies: { ...DEFAULT_DEPENDENCIES },
+  files: {},
+});
+
 export const createStarterProject = (): GeneratedProject => ({
   title: "Webmaker Starter",
   summary:
@@ -460,19 +470,40 @@ export const createStarterProject = (): GeneratedProject => ({
 
 const PLACEHOLDER_APP_MARKER = "Ready to build";
 
-/** True when the project is still the empty shell shown before the first generation. */
-export const isPlaceholderProject = (project: GeneratedProject): boolean => {
-  const filePaths = Object.keys(project.files);
-  if (filePaths.length === 0) {
-    return true;
-  }
+export const hasScaffoldedPackageJson = (project: GeneratedProject): boolean =>
+  Boolean(project.files["/package.json"]?.code?.trim());
 
-  const appCode = project.files["/src/App.tsx"]?.code ?? "";
-  return appCode.includes(PLACEHOLDER_APP_MARKER);
-};
+/** True when Hermes has not scaffolded a runnable project yet (no package.json). */
+export const isPlaceholderProject = (project: GeneratedProject): boolean =>
+  !hasScaffoldedPackageJson(project);
 
 export const isProjectReadyForPreview = (project: GeneratedProject): boolean =>
   !isPlaceholderProject(project);
+
+const ENTRY_CANDIDATES = [
+  "/app/page.tsx",
+  "/src/app/page.tsx",
+  "/pages/index.tsx",
+  "/src/App.tsx",
+  "/src/main.tsx",
+  "/index.html",
+];
+
+/** Pick the best editor/preview entry from scanned workspace files. */
+export const resolveProjectEntry = (
+  files: Record<string, { code: string }>,
+  preferred?: string
+): string => {
+  if (preferred && files[preferred]) {
+    return preferred;
+  }
+  for (const candidate of ENTRY_CANDIDATES) {
+    if (files[candidate]) {
+      return candidate;
+    }
+  }
+  return Object.keys(files).sort()[0] || "/app/page.tsx";
+};
 
 export const normalizeProjectPath = (value: string): string => {
   const cleaned = value.replace(/\\/g, "/").trim();
@@ -501,7 +532,7 @@ export const requireProjectPath = (value: unknown, fieldLabel: string): string =
 
 const normalizeFileMap = (value: unknown): ProjectFileMap => {
   if (!value || typeof value !== "object") {
-    return createStarterProject().files;
+    return {};
   }
 
   const entries = Object.entries(value as Record<string, unknown>)
@@ -529,7 +560,7 @@ const normalizeFileMap = (value: unknown): ProjectFileMap => {
     .filter((entry): entry is readonly [string, { code: string; hidden?: boolean; active?: boolean }] => Boolean(entry));
 
   if (entries.length === 0) {
-    return createStarterProject().files;
+    return {};
   }
 
   return Object.fromEntries(entries);
@@ -683,7 +714,7 @@ export const getProjectPrimaryFile = (project: GeneratedProject): string => {
     return active[0];
   }
 
-  return project.files[project.entry] ? project.entry : getProjectFilePaths(project)[0];
+  return resolveProjectEntry(project.files, project.entry);
 };
 
 export const projectToSandpackFiles = (
@@ -960,7 +991,7 @@ export const migrateLegacySession = (session: Partial<Session> & { currentCode?:
   return {
     id: session.id ?? crypto.randomUUID(),
     messages,
-    currentProject: createStarterProject(),
+    currentProject: createEmptyProject(),
     createdAt: session.createdAt ?? new Date().toISOString(),
   };
 };

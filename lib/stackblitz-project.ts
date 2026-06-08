@@ -1,4 +1,5 @@
 import { getBootstrapFiles } from "@/lib/download-bootstrap";
+import { hasScaffoldedPackageJson, resolveProjectEntry } from "@/lib/project";
 import type { GeneratedProject } from "@/lib/types";
 
 /** Paths fully defined by bootstrap; user project must not override (matches prior Sandpack preview rules). */
@@ -22,6 +23,17 @@ function toRelativePath(projectPath: string): string {
  * Keys are repo-relative paths (no leading slash).
  */
 export function getStackBlitzFileMap(project: GeneratedProject): Record<string, string> {
+  const scaffolded = hasScaffoldedPackageJson(project);
+
+  // Hermes-scaffolded projects (create-next-app, vite, etc.) own package.json and config.
+  if (scaffolded) {
+    const files: Record<string, string> = {};
+    for (const [path, file] of Object.entries(project.files)) {
+      files[toRelativePath(path)] = file.code;
+    }
+    return files;
+  }
+
   const bootstrap = getBootstrapFiles(project);
   const files: Record<string, string> = { ...bootstrap };
 
@@ -51,6 +63,6 @@ export function getStackBlitzEmbedDefinition(project: GeneratedProject): StackBl
       (project.summary ?? "A frontend app generated with Webmaker.").slice(0, 240),
     template: "node",
     files: getStackBlitzFileMap(project),
-    openFile: toRelativePath(project.entry),
+    openFile: toRelativePath(resolveProjectEntry(project.files, project.entry)),
   };
 }

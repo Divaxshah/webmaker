@@ -1,6 +1,7 @@
 import {
-  createStarterProject,
+  createEmptyProject,
   getProjectFilePaths,
+  hasScaffoldedPackageJson,
   normalizeProject,
   normalizeProjectPath,
 } from "@/lib/project";
@@ -67,8 +68,12 @@ export const ensureWorkspaceProjectIntegrity = (
   const normalized = normalizeProject(project);
   const filePaths = Object.keys(normalized.files);
 
-  if (filePaths.length === 0) {
-    return createStarterProject();
+  if (filePaths.length === 0 || !hasScaffoldedPackageJson(normalized)) {
+    return {
+      ...createEmptyProject(),
+      ...normalized,
+      files: hasScaffoldedPackageJson(normalized) ? normalized.files : {},
+    };
   }
 
   const entry = normalized.files[normalized.entry]
@@ -101,7 +106,7 @@ export const createWorkspaceSnapshot = (
   const runtimeMode = getRuntimeConfig().mode;
   return {
     id: workspaceId,
-    project: ensureWorkspaceProjectIntegrity(project ?? createStarterProject()),
+    project: ensureWorkspaceProjectIntegrity(project ?? createEmptyProject()),
     runtime: {
       provider: runtimeMode,
       status: "idle",

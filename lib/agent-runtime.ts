@@ -17,7 +17,7 @@ import { getRuntimeConfig, getRuntimeProviderLabel } from "@/lib/runtime-config"
 import { validateAgentToolCall } from "@/lib/tool-contract";
 import { getToolNames } from "@/lib/tool-registry";
 import {
-  createStarterProject,
+  createEmptyProject,
   getProjectFilePaths,
   normalizeProject,
   requireProjectPath,
@@ -836,7 +836,7 @@ export const runAgentLoop = async ({
     runtimeToolsEnabled
   );
   let project = ensureProjectIntegrity(
-    currentProject ? normalizeProject(currentProject) : createStarterProject()
+    currentProject ? normalizeProject(currentProject) : createEmptyProject()
   );
   let totalTokens = 0;
   let streamLog = "";

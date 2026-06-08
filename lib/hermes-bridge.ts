@@ -1,8 +1,13 @@
 import { spawn } from "node:child_process";
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { GenerationStreamEvent } from "@/lib/agent";
-import { createStarterProject, normalizeProject } from "@/lib/project";
+import {
+  createEmptyProject,
+  isPlaceholderProject,
+  normalizeProject,
+  resolveProjectEntry,
+} from "@/lib/project";
 import type { AgentActivity, GeneratedProject, ProjectFileMap } from "@/lib/types";
 import { estimateTokenCount } from "@/lib/utils";
 
@@ -137,15 +142,36 @@ const assertInside = (base: string, target: string) => {
   }
 };
 
+const clearWorkspaceExceptMetadata = async (workspaceRoot: string) => {
+  let entries;
+  try {
+    entries = await readdir(workspaceRoot, { withFileTypes: true });
+  } catch {
+    return;
+  }
+
+  for (const entry of entries) {
+    if (entry.name === ".webmaker-project.json") continue;
+    const absolutePath = path.join(workspaceRoot, entry.name);
+    assertInside(workspaceRoot, absolutePath);
+    await rm(absolutePath, { recursive: true, force: true });
+  }
+};
+
 const materializeProject = async (workspaceRoot: string, project: GeneratedProject) => {
   await mkdir(workspaceRoot, { recursive: true });
 
-  for (const [projectPath, file] of Object.entries(project.files)) {
-    const relativePath = projectPath.replace(/^\/+/, "");
-    const absolutePath = path.join(workspaceRoot, relativePath);
-    assertInside(workspaceRoot, absolutePath);
-    await mkdir(path.dirname(absolutePath), { recursive: true });
-    await writeFile(absolutePath, file.code, "utf8");
+  // Greenfield: Hermes scaffolds via create-new-project — wipe stale files, do not seed templates.
+  if (isPlaceholderProject(project)) {
+    await clearWorkspaceExceptMetadata(workspaceRoot);
+  } else {
+    for (const [projectPath, file] of Object.entries(project.files)) {
+      const relativePath = projectPath.replace(/^\/+/, "");
+      const absolutePath = path.join(workspaceRoot, relativePath);
+      assertInside(workspaceRoot, absolutePath);
+      await mkdir(path.dirname(absolutePath), { recursive: true });
+      await writeFile(absolutePath, file.code, "utf8");
+    }
   }
 
   await writeFile(
@@ -189,10 +215,7 @@ const projectFromWorkspace = async (
   previous: GeneratedProject
 ): Promise<GeneratedProject> => {
   const files = await scanFiles(workspaceRoot);
-  const activePath =
-    previous.files[previous.entry] || files[previous.entry]
-      ? previous.entry
-      : Object.keys(files).sort()[0] || "/src/app/page.tsx";
+  const activePath = resolveProjectEntry(files, previous.entry);
 
   if (files[activePath]) {
     files[activePath] = { ...files[activePath], active: true };
@@ -340,7 +363,8 @@ export const readHermesRuntimeInfo = async (): Promise<HermesRuntimeInfo> => {
 };
 
 export const runHermesAgentLoop = async (options: RunHermesAgentLoopOptions) => {
-  const project = options.currentProject ?? createStarterProject();
+  const project = options.currentProject ?? createEmptyProject();
+  const greenfield = isPlaceholderProject(project);
   const workspaceRoot = path.join(WORKSPACE_BASE, toWorkspaceId(options));
   const bridgePath = hermesPath();
   const python = hermesPython();
@@ -396,6 +420,7 @@ export const runHermesAgentLoop = async (options: RunHermesAgentLoopOptions) => 
     workspaceRoot,
     messages: options.messages,
     currentProject: project,
+    greenfield,
     model: hermesModel,
     provider: hermesProvider,
     runtimePolicy: { frontendOnly: true },
