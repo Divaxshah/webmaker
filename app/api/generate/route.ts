@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import type { GenerationStreamEvent } from "@/lib/agent";
-import { runAgentLoop } from "@/lib/agent-runtime";
-import { coerceLuminoModelId, DEFAULT_LUMINO_MODEL } from "@/lib/models";
+import { runHermesAgentLoop } from "@/lib/hermes-bridge";
 import { normalizeProject } from "@/lib/project";
 import type { GeneratedProject, WorkspaceSnapshot } from "@/lib/types";
 
@@ -15,8 +14,6 @@ interface GenerateBody {
   messages: IncomingMessage[];
   currentProject: GeneratedProject | null;
   sessionWorkspace?: WorkspaceSnapshot | null;
-  modelId?: string;
-  activeSkillIds?: string[];
 }
 
 export const runtime = "nodejs";
@@ -66,17 +63,12 @@ export async function POST(request: NextRequest) {
         return base;
       });
 
-    const modelId =
-      typeof body.modelId === "string"
-        ? coerceLuminoModelId(body.modelId)
-        : DEFAULT_LUMINO_MODEL;
-
     const encoder = new TextEncoder();
 
     const readableStream = new ReadableStream<Uint8Array>({
       async start(controller) {
         try {
-          await runAgentLoop({
+          await runHermesAgentLoop({
             messages,
             currentProject: body.currentProject
               ? normalizeProject(body.currentProject)
@@ -86,12 +78,6 @@ export async function POST(request: NextRequest) {
               isWorkspaceSnapshot(body.sessionWorkspace)
                 ? body.sessionWorkspace
                 : null,
-            modelId,
-            activeSkillIds: Array.isArray(body.activeSkillIds)
-              ? body.activeSkillIds.filter(
-                  (skillId): skillId is string => typeof skillId === "string"
-                )
-              : [],
             signal: request.signal,
             onEvent: (event) => {
               controller.enqueue(encodeEvent(event, encoder));

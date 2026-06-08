@@ -463,8 +463,37 @@ class LocalWorkspaceProvider implements WorkspaceProvider {
     const processId = `${loaded.id}-preview`;
     const existing = managedProcesses.get(processId);
     if (existing) {
-      existing.process.kill("SIGTERM");
-      managedProcesses.delete(processId);
+      const existingPort = loaded.runtime.providerMeta?.previewPort;
+      const url =
+        loaded.runtime.preview.url ||
+        (existingPort ? `http://127.0.0.1:${existingPort}` : undefined);
+      if (url) {
+        const nextWorkspace: WorkspaceSnapshot = {
+          ...loaded,
+          runtime: {
+            ...loaded.runtime,
+            status: "ready",
+            lastCommand: "npm run dev",
+            lastError: undefined,
+            lastProcessId: processId,
+            providerMeta: {
+              ...(loaded.runtime.providerMeta ?? {}),
+              previewProcessId: processId,
+            },
+            preview: {
+              status: "ready",
+              url,
+            },
+          },
+          updatedAt: new Date().toISOString(),
+        };
+        return {
+          ok: true,
+          workspace: nextWorkspace,
+          data: { processId, url },
+          output: `Reused preview at ${url}.`,
+        };
+      }
     }
 
     const child = spawn("npm", ["run", "dev", "--", "--host", "127.0.0.1", "--port", String(port)], {

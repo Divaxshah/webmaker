@@ -8,8 +8,8 @@ export const runtime = "nodejs";
  * GET /api/health — no secrets returned.
  */
 export async function GET() {
-  const health = getWebmakerHealth();
-  const statusCode = health.checks.openrouter.ok ? 200 : 503;
+  const health = await getWebmakerHealth();
+  const statusCode = health.checks.hermesBridge.ok ? 200 : 503;
   return NextResponse.json(
     {
       service: "webmaker",

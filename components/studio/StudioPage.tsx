@@ -11,7 +11,6 @@ import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { ResizablePanel } from "@/components/ui/ResizablePanel";
 import { useGeneration } from "@/hooks/useGeneration";
 import { useDashboardSessionSync } from "@/hooks/useDashboardSessionSync";
-import type { LuminoModelId } from "@/lib/models";
 import {
   areRuntimeToolsEnabled,
   type SelectableRuntimeProviderMode,
@@ -21,11 +20,9 @@ import {
   getActiveSession,
   getActiveSessionMessages,
   getActiveSessionProject,
-  getActiveSessionSkillIds,
   getActiveSessionWorkspace,
   useAppStore,
 } from "@/lib/store";
-import type { SkillReference } from "@/lib/types";
 import { createId } from "@/lib/utils";
 import { setWorkspaceRuntimeProvider } from "@/lib/workspace";
 
@@ -41,7 +38,6 @@ export function StudioPage() {
   const [mobileTab, setMobileTab] = useState<MobileTab>("chat");
   const [composerValue, setComposerValue] = useState("");
   const [composerFocusToken, setComposerFocusToken] = useState<string | null>(null);
-  const [availableSkills, setAvailableSkills] = useState<SkillReference[]>([]);
 
   const { generate, stopGeneration } = useGeneration();
   const sessions = useAppStore((state) => state.sessions);
@@ -49,9 +45,7 @@ export function StudioPage() {
   const isGenerating = useAppStore((state) => state.isGenerating);
   const streamingText = useAppStore((state) => state.streamingText);
   const lastPrompt = useAppStore((state) => state.lastPrompt);
-  const selectedModelId = useAppStore((state) => state.selectedModelId);
   const runtimeError = useAppStore((state) => state.runtimeError);
-  const activeSkillIds = useAppStore(getActiveSessionSkillIds);
   const workspace = useAppStore(getActiveSessionWorkspace);
 
   const messages = useAppStore(getActiveSessionMessages);
@@ -60,9 +54,7 @@ export function StudioPage() {
 
   const deleteSession = useAppStore((state) => state.deleteSession);
   const setRuntimeError = useAppStore((state) => state.setRuntimeError);
-  const setSelectedModelId = useAppStore((state) => state.setSelectedModelId);
   const setActiveSessionId = useAppStore((state) => state.setActiveSessionId);
-  const setActiveSkillIds = useAppStore((state) => state.setActiveSkillIds);
   const setWorkspaceSnapshot = useAppStore((state) => state.setWorkspaceSnapshot);
   const newSession = useAppStore((state) => state.newSession);
 
@@ -89,13 +81,6 @@ export function StudioPage() {
   const removeSession = (id: string) => {
     deleteSession(id);
     setMobileTab("chat");
-  };
-
-  const toggleSkill = (skillId: string) => {
-    const next = activeSkillIds.includes(skillId)
-      ? activeSkillIds.filter((id) => id !== skillId)
-      : [...activeSkillIds, skillId];
-    setActiveSkillIds(next, activeSession.id);
   };
 
   const refreshWorkspaceRuntime = useCallback(async () => {
@@ -173,35 +158,6 @@ export function StudioPage() {
   );
 
   useEffect(() => {
-    let cancelled = false;
-
-    const loadSkills = async () => {
-      try {
-        const response = await fetch("/api/skills", { cache: "no-store" });
-        if (!response.ok) {
-          return;
-        }
-
-        const json = (await response.json()) as {
-          skills?: typeof availableSkills;
-        };
-
-        if (!cancelled && Array.isArray(json.skills)) {
-          setAvailableSkills(json.skills);
-        }
-      } catch {
-        // Keep the UI usable even if the skills endpoint fails.
-      }
-    };
-
-    void loadSkills();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
     if (!runtimeToolsEnabled) {
       return;
     }
@@ -218,13 +174,8 @@ export function StudioPage() {
       isGenerating={isGenerating}
       streamingText={streamingText}
       lastPrompt={lastPrompt}
-      selectedModelId={selectedModelId}
-      availableSkills={availableSkills}
-      activeSkillIds={activeSkillIds}
       composerValue={composerValue}
       composerFocusToken={composerFocusToken}
-      onModelChange={(modelId: LuminoModelId) => setSelectedModelId(modelId)}
-      onToggleSkill={toggleSkill}
       onComposerChange={setComposerValue}
       onSubmit={submitPrompt}
       onStop={stopGeneration}

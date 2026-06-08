@@ -1,8 +1,7 @@
 "use client";
 
 import { Cpu } from "lucide-react";
-import { type LuminoModelId } from "@/lib/models";
-import type { Message, SkillReference } from "@/lib/types";
+import type { Message } from "@/lib/types";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { MessageFeed } from "@/components/chat/MessageFeed";
 
@@ -11,13 +10,8 @@ interface ChatPanelProps {
   isGenerating: boolean;
   streamingText: string;
   lastPrompt: string;
-  selectedModelId: LuminoModelId;
-  availableSkills: SkillReference[];
-  activeSkillIds: string[];
   composerValue: string;
   composerFocusToken?: string | null;
-  onModelChange: (modelId: LuminoModelId) => void;
-  onToggleSkill: (skillId: string) => void;
   onComposerChange: (value: string) => void;
   onSubmit: (prompt: string) => void;
   onStop: () => void;
@@ -29,13 +23,8 @@ export function ChatPanel({
   isGenerating,
   streamingText,
   lastPrompt,
-  selectedModelId,
-  availableSkills,
-  activeSkillIds,
   composerValue,
   composerFocusToken,
-  onModelChange,
-  onToggleSkill,
   onComposerChange,
   onSubmit,
   onStop,
@@ -66,13 +55,8 @@ export function ChatPanel({
         <ChatInput 
           isGenerating={isGenerating} 
           lastPrompt={lastPrompt} 
-          selectedModelId={selectedModelId}
-          availableSkills={availableSkills}
-          activeSkillIds={activeSkillIds}
           value={composerValue}
           focusToken={composerFocusToken}
-          onModelChange={onModelChange}
-          onToggleSkill={onToggleSkill}
           onChange={onComposerChange}
           onSubmit={onSubmit}
           onStop={onStop}

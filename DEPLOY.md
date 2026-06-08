@@ -8,11 +8,12 @@ Do these once per environment. After this, `npm run build && npm start` (or Verc
 
 | Variable | Where |
 |----------|--------|
-| `OPENROUTER_API_KEY` | Vercel / `.env.local` |
+| `WEBMAKER_HERMES_PATH` | Server env / `.env.local` |
+| `WEBMAKER_HERMES_PYTHON` | Server env / `.env.local` |
 
-Get a key at [OpenRouter](https://openrouter.ai/). Without this, `/api/generate` fails.
+Webmaker delegates generation to Hermes. Configure model/provider credentials in Hermes, for example in the Hermes environment or Hermes `.env` used by the Python process. Without a working Hermes model/provider config, `/api/generate` starts but Hermes cannot complete a generation.
 
-Verify: open `/api/health` — `checks.openrouter.ok` must be `true`.
+Verify: open `/api/health` — `checks.hermesBridge.ok` must be `true`.
 
 ---
 
@@ -31,7 +32,32 @@ Verify: `/api/health` → `checks.upstashRedis.ok`.
 
 ---
 
-## 3. Optional: Cloudflare Sandbox runtime
+## 3. Required: Hermes generation backend
+
+Webmaker uses Hermes as its generation backend. Run Webmaker on infrastructure that can spawn a Python process and access a local Hermes checkout.
+
+```bash
+WEBMAKER_HERMES_PATH=/media/avinyaa/4ad5a4e0-4ac1-480f-90c1-386d861b6f342/agent/hermes-agent
+WEBMAKER_HERMES_PYTHON=python3
+# Optional: set only if you want Webmaker to use a specific Hermes profile/home.
+WEBMAKER_HERMES_HOME=/absolute/path/to/hermes-home
+```
+
+Do not duplicate model/provider settings in Webmaker. Webmaker asks Hermes for the effective model/provider from Hermes' own `config.yaml` and environment. Configure models with Hermes itself, for example `hermes setup model` or `hermes model`. If `WEBMAKER_HERMES_HOME` and `HERMES_HOME` are unset, Hermes uses its normal default home, typically `~/.hermes`.
+
+This is local/server-hosted because `/api/generate` spawns `python -m webmaker_bridge` and materializes projects under `.webmaker/workspaces/`. Webmaker still owns Studio UI, preview, export, session persistence, and runtime selection. Hermes works inside the materialized workspace and streams the same NDJSON event contract back to the existing frontend.
+
+Delegation is disabled by default. Enable it only when you want Hermes subagents:
+
+```bash
+WEBMAKER_HERMES_ENABLE_DELEGATION=1
+```
+
+Verify: `/api/health` includes `checks.hermesBridge`.
+
+---
+
+## 4. Optional: Cloudflare Sandbox runtime
 
 Current repo status as of April 29, 2026:
 
@@ -140,20 +166,21 @@ If steps 5-7 fail, Cloudflare is still not connected correctly.
 
 ---
 
-## 4. Smoke test after deploy
+## 5. Smoke test after deploy
 
 1. `GET /api/health` — expect `status: "ok"` when OpenRouter + Redis are configured (degraded is OK if Redis skipped).
 2. Open `/studio`, send a short prompt — generation should stream.
-3. Preview panel uses **StackBlitz** (WebContainers) for in-browser Vite preview; use Code → ZIP for local `npm` / deploy.
+3. Preview panel uses **StackBlitz** (WebContainers) for an in-browser Next.js preview; use Code → ZIP for local `npm` / deploy.
 
 ---
 
-## 5. Troubleshooting
+## 6. Troubleshooting
 
 | Symptom | Likely fix |
 |---------|------------|
-| 503 on `/api/health` | Missing `OPENROUTER_API_KEY` |
-| Generation errors | Key invalid or model id issue — check OpenRouter dashboard |
+| 503 on `/api/health` | Missing or invalid Hermes bridge configuration |
+| Generation errors | Hermes model/provider credentials or model id issue |
+| Hermes exits immediately | Verify `WEBMAKER_HERMES_PATH`, `WEBMAKER_HERMES_PYTHON`, and Hermes model/provider credentials |
 | Preview link 404 on Vercel | Add Upstash Redis vars |
 | `cloudflare-sandbox` selected but runtime says gateway is missing | Set `CLOUDFLARE_SANDBOX_GATEWAY_URL` in the Next.js app |
 | gateway returns 401 | `CLOUDFLARE_SANDBOX_GATEWAY_TOKEN` does not match worker secret `GATEWAY_TOKEN` |

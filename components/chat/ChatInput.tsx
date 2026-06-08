@@ -1,23 +1,15 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { ArrowUp, ChevronRight, Square } from "lucide-react";
+import { ArrowUp, Square } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
-import { LUMINO_MODELS, type LuminoModelId } from "@/lib/models";
-import { SkillPicker } from "@/components/chat/SkillPicker";
 import { Button } from "@/components/ui/button";
-import type { SkillReference } from "@/lib/types";
 
 interface ChatInputProps {
   isGenerating: boolean;
   lastPrompt: string;
-  selectedModelId: LuminoModelId;
-  availableSkills: SkillReference[];
-  activeSkillIds: string[];
   value: string;
   focusToken?: string | null;
-  onModelChange: (modelId: LuminoModelId) => void;
-  onToggleSkill: (skillId: string) => void;
   onChange: (value: string) => void;
   onSubmit: (prompt: string) => void;
   onStop: () => void;
@@ -26,13 +18,8 @@ interface ChatInputProps {
 export function ChatInput({
   isGenerating,
   lastPrompt,
-  selectedModelId,
-  availableSkills,
-  activeSkillIds,
   value,
   focusToken,
-  onModelChange,
-  onToggleSkill,
   onChange,
   onSubmit,
   onStop,
@@ -71,30 +58,6 @@ export function ChatInput({
 
   return (
     <div className="flex min-w-0 flex-col gap-3 overflow-hidden">
-      <div className="relative flex min-w-0 items-center rounded-xl bg-secondary/50 border-2 border-border">
-         <select
-            id="model-select-input"
-            value={selectedModelId}
-            onChange={(event) => onModelChange(event.target.value as LuminoModelId)}
-            className="w-full relative z-10 appearance-none bg-transparent px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground outline-none cursor-pointer"
-          >
-            {LUMINO_MODELS.map((model) => (
-              <option key={model.id} value={model.id} className="bg-card text-foreground">
-                {model.label}
-              </option>
-            ))}
-          </select>
-          <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-muted-foreground">
-            <ChevronRight size={14} className="rotate-90" />
-          </div>
-      </div>
-
-      <SkillPicker
-        skills={availableSkills}
-        activeSkillIds={activeSkillIds}
-        onToggle={onToggleSkill}
-      />
-
       <div className="relative min-w-0 overflow-hidden rounded-[2rem] bg-card border-2 border-border focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
         <Textarea
           ref={textareaRef}

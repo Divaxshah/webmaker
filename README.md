@@ -6,7 +6,7 @@ AI-assisted frontend studio (Next.js): chat, browser preview, ZIP/export and sha
 
 ```bash
 cp .env.example .env.local
-# Set OPENROUTER_API_KEY at minimum — see DEPLOY.md
+# Configure Hermes — see DEPLOY.md
 
 npm install
 npm run dev
@@ -22,7 +22,7 @@ After setting env vars:
 curl -s http://localhost:3000/api/health | jq
 ```
 
-- **`OPENROUTER_API_KEY`** — required for generation.
+- **Hermes agent** — required for generation and model/provider credentials; see **[DEPLOY.md](./DEPLOY.md)**.
 - **Cloudflare Sandbox + Redis** — optional; see **[DEPLOY.md](./DEPLOY.md)** for production.
 
 ## Cloudflare Sandbox status
