@@ -3,7 +3,7 @@ import { twMerge } from "tailwind-merge"
 import type { GeneratedProject } from "./types"
 import JSZip from "jszip"
 import { getBootstrapFiles } from "./download-bootstrap"
-import { createEmptyProject } from "./project"
+import { createPlaceholderProject } from "./project"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -21,7 +21,7 @@ export function estimateTokenCount(text: string) {
   return Math.ceil(text.length / 4)
 }
 
-export const STARTER_PROJECT: GeneratedProject = createEmptyProject();
+export const STARTER_PROJECT: GeneratedProject = createPlaceholderProject();
 
 export async function downloadProjectBundle(project: GeneratedProject) {
   const zip = new JSZip();
@@ -47,6 +47,3 @@ export async function downloadProjectBundle(project: GeneratedProject) {
   URL.revokeObjectURL(url);
 }
 
-export function openProjectInStackBlitz(project: GeneratedProject) {
-  console.log("Opening in StackBlitz...", project);
-}

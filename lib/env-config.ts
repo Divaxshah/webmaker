@@ -4,10 +4,8 @@
  */
 
 export interface WebmakerHealthChecks {
-  /** Optional but recommended on Vercel/serverless: durable preview IDs (/api/preview). */
+  /** Optional: durable preview IDs and dashboard sync across restarts. */
   upstashRedis: { ok: boolean; hint?: string };
-  /** Optional: needed when using the Cloudflare Sandbox runtime provider. */
-  cloudflareSandboxGateway: { ok: boolean; hint?: string };
   /** Required for Hermes-backed generation. */
   hermesBridge: {
     ok: boolean;
@@ -18,39 +16,34 @@ export interface WebmakerHealthChecks {
     provider?: string;
     hermesHome?: string;
   };
+  /** Required for Studio Docker preview (bind-mount workspaces). */
+  dockerPreview: { ok: boolean; hint?: string };
 }
 
 export interface WebmakerHealthResult {
   status: "ok" | "degraded";
   checks: WebmakerHealthChecks;
-  /** Actionable messages for operators (only missing/warn items). */
   messages: string[];
 }
 
 const hint = {
   upstashRedis:
-    "Set UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN for reliable shared preview links on serverless. Single local Node process can omit (uses temp files).",
-  cloudflareSandboxGateway:
-    "Set CLOUDFLARE_SANDBOX_GATEWAY_URL and optionally CLOUDFLARE_SANDBOX_GATEWAY_TOKEN after deploying the Cloudflare Sandbox worker gateway.",
+    "Set UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN for shared preview links and dashboard sync across restarts.",
   hermesBridge:
     "Set WEBMAKER_HERMES_PATH and WEBMAKER_HERMES_PYTHON for Hermes-backed generation.",
+  dockerPreview:
+    "Install Docker and ensure the app can access DOCKER_SOCKET (default /var/run/docker.sock) for Studio preview containers.",
 };
 
 export const getWebmakerHealth = async (): Promise<WebmakerHealthResult> => {
   const upstashOk =
     Boolean(process.env.UPSTASH_REDIS_REST_URL?.trim()) &&
     Boolean(process.env.UPSTASH_REDIS_REST_TOKEN?.trim());
-  const cloudflareGatewayOk = Boolean(
-    process.env.CLOUDFLARE_SANDBOX_GATEWAY_URL?.trim()
-  );
-  const hermesPathOk = Boolean(
-    (process.env.WEBMAKER_HERMES_PATH ||
-      "/media/avinyaa/4ad5a4e0-4ac1-480f-90c1-386d861b6f342/agent/hermes-agent").trim()
-  );
-  const hermesPython = process.env.WEBMAKER_HERMES_PYTHON || "python3";
-  const hermesPath =
-    process.env.WEBMAKER_HERMES_PATH ||
-    "/media/avinyaa/4ad5a4e0-4ac1-480f-90c1-386d861b6f342/agent/hermes-agent";
+
+  const hermesPath = process.env.WEBMAKER_HERMES_PATH?.trim() ?? "";
+  const hermesPython = process.env.WEBMAKER_HERMES_PYTHON?.trim() || "python3";
+  const hermesOk = Boolean(hermesPath) && Boolean(hermesPython.trim());
+
   let runtimeInfo = {
     model: "Hermes configured default",
     provider: "Hermes configured default",
@@ -60,20 +53,19 @@ export const getWebmakerHealth = async (): Promise<WebmakerHealthResult> => {
     const { readHermesRuntimeInfo } = await import("@/lib/hermes-bridge");
     runtimeInfo = await readHermesRuntimeInfo();
   } catch {
-    runtimeInfo = {
-      model: "Hermes configured default",
-      provider: "Hermes configured default",
-      hermesHome: "",
-    };
+    // Health still reports path/python even if runtime info probe fails.
   }
-  const hermesPythonOk = Boolean(hermesPython.trim());
-  const hermesOk = hermesPathOk && hermesPythonOk;
+
+  let dockerOk = false;
+  try {
+    const { isDockerAvailable } = await import("@/lib/docker-preview");
+    dockerOk = await isDockerAvailable();
+  } catch {
+    dockerOk = false;
+  }
 
   const checks: WebmakerHealthChecks = {
     upstashRedis: upstashOk ? { ok: true } : { ok: false, hint: hint.upstashRedis },
-    cloudflareSandboxGateway: cloudflareGatewayOk
-      ? { ok: true }
-      : { ok: false, hint: hint.cloudflareSandboxGateway },
     hermesBridge: hermesOk
       ? {
           ok: true,
@@ -81,27 +73,30 @@ export const getWebmakerHealth = async (): Promise<WebmakerHealthResult> => {
           python: hermesPython,
           model: runtimeInfo.model,
           provider: runtimeInfo.provider,
-          hermesHome: "hermesHome" in runtimeInfo ? runtimeInfo.hermesHome : "",
+          hermesHome: runtimeInfo.hermesHome ?? "",
         }
       : {
           ok: false,
           hint: hint.hermesBridge,
-          path: hermesPath,
+          path: hermesPath || undefined,
           python: hermesPython,
           model: runtimeInfo.model,
           provider: runtimeInfo.provider,
-          hermesHome: "hermesHome" in runtimeInfo ? runtimeInfo.hermesHome : "",
+          hermesHome: runtimeInfo.hermesHome ?? "",
         },
+    dockerPreview: dockerOk
+      ? { ok: true }
+      : { ok: false, hint: hint.dockerPreview },
   };
 
   const messages: string[] = [];
   if (!upstashOk) messages.push(hint.upstashRedis);
-  if (!cloudflareGatewayOk) messages.push(hint.cloudflareSandboxGateway);
   if (!hermesOk) messages.push(hint.hermesBridge);
+  if (!dockerOk) messages.push(hint.dockerPreview);
 
-  const allGreen = upstashOk && hermesOk;
+  const criticalOk = hermesOk && dockerOk;
   return {
-    status: allGreen ? "ok" : "degraded",
+    status: criticalOk && upstashOk ? "ok" : criticalOk ? "degraded" : "degraded",
     checks,
     messages,
   };

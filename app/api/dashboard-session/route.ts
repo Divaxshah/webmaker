@@ -14,8 +14,7 @@ const isPayload = (value: unknown): value is DashboardPersistPayload => {
   return (
     Array.isArray(o.sessions) &&
     typeof o.activeSessionId === "string" &&
-    typeof o.lastPrompt === "string" &&
-    typeof o.selectedModelId === "string"
+    typeof o.lastPrompt === "string"
   );
 };
 

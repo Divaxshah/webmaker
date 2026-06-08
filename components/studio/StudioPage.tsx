@@ -88,6 +88,7 @@ export function StudioPage() {
   const previewPanel = (
     <PreviewPanel
       project={project}
+      workspaceId={activeSession?.workspace?.id ?? activeSessionId ?? "default"}
       runtimeError={runtimeError}
       isGenerating={isGenerating}
       onDismissError={() => setRuntimeError(null)}

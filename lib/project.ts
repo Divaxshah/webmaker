@@ -1,4 +1,5 @@
-import { extractProjectEnvelope } from "@/lib/agent";
+import { extractProjectEnvelope } from "@/lib/generation-stream";
+import { mergeProjectWithBootstrap } from "@/lib/download-bootstrap";
 import type { GeneratedProject, ProjectFileMap, Session } from "@/lib/types";
 
 const DEFAULT_DEPENDENCIES: Record<string, string> = {
@@ -448,15 +449,72 @@ interface RawProjectShape {
   files?: unknown;
 }
 
-/** Empty workspace — Hermes scaffolds via the create-new-project skill. */
-export const createEmptyProject = (): GeneratedProject => ({
-  title: "New Workspace",
-  summary: "Hermes will scaffold this project from your prompt.",
-  framework: "react-ts",
-  entry: DEFAULT_ENTRY,
-  dependencies: { ...DEFAULT_DEPENDENCIES },
-  files: {},
-});
+const PLACEHOLDER_FILES: ProjectFileMap = {
+  "/src/main.tsx": {
+    code: `import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App";
+import "./styles.css";
+
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);`,
+  },
+  "/src/App.tsx": {
+    code: `export default function App() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-zinc-950 p-8 text-zinc-50">
+      <div className="space-y-4 text-center">
+        <h1 className="text-3xl font-bold tracking-tight">Ready to build</h1>
+        <p className="max-w-sm text-zinc-400">
+          Enter a prompt in the chat to generate a new multi-file application.
+        </p>
+      </div>
+    </div>
+  );
+}`,
+    active: true,
+  },
+  "/src/styles.css": {
+    code: `@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  font-family: "Manrope", sans-serif;
+}`,
+  },
+};
+
+/** Full Vite/React/Tailwind shell seeded before Hermes runs (like create-vite --yes). */
+export const createPlaceholderProject = (): GeneratedProject => {
+  const base: GeneratedProject = {
+    title: "New Workspace",
+    summary: "Start prompting to generate a frontend project.",
+    framework: "react-ts",
+    entry: DEFAULT_ENTRY,
+    dependencies: {
+      react: "^18.0.0",
+      "react-dom": "^18.0.0",
+      "lucide-react": "latest",
+      clsx: "latest",
+      "tailwind-merge": "latest",
+    },
+    files: PLACEHOLDER_FILES,
+  };
+
+  return {
+    ...base,
+    files: mergeProjectWithBootstrap(base),
+  };
+};
 
 export const createStarterProject = (): GeneratedProject => ({
   title: "Webmaker Starter",
@@ -473,9 +531,27 @@ const PLACEHOLDER_APP_MARKER = "Ready to build";
 export const hasScaffoldedPackageJson = (project: GeneratedProject): boolean =>
   Boolean(project.files["/package.json"]?.code?.trim());
 
-/** True when Hermes has not scaffolded a runnable project yet (no package.json). */
-export const isPlaceholderProject = (project: GeneratedProject): boolean =>
-  !hasScaffoldedPackageJson(project);
+/** Ensure Vite bootstrap files exist (upgrades legacy 3-file sessions). */
+export const ensureScaffoldedProject = (project: GeneratedProject): GeneratedProject => {
+  if (hasScaffoldedPackageJson(project)) {
+    return project;
+  }
+  return {
+    ...project,
+    files: mergeProjectWithBootstrap(project),
+  };
+};
+
+/** True when the project is still the empty shell shown before the first generation. */
+export const isPlaceholderProject = (project: GeneratedProject): boolean => {
+  const filePaths = Object.keys(project.files);
+  if (filePaths.length === 0) {
+    return true;
+  }
+
+  const appCode = project.files["/src/App.tsx"]?.code ?? "";
+  return appCode.includes(PLACEHOLDER_APP_MARKER);
+};
 
 export const isProjectReadyForPreview = (project: GeneratedProject): boolean =>
   !isPlaceholderProject(project);
@@ -532,7 +608,7 @@ export const requireProjectPath = (value: unknown, fieldLabel: string): string =
 
 const normalizeFileMap = (value: unknown): ProjectFileMap => {
   if (!value || typeof value !== "object") {
-    return {};
+    return createPlaceholderProject().files;
   }
 
   const entries = Object.entries(value as Record<string, unknown>)
@@ -560,7 +636,7 @@ const normalizeFileMap = (value: unknown): ProjectFileMap => {
     .filter((entry): entry is readonly [string, { code: string; hidden?: boolean; active?: boolean }] => Boolean(entry));
 
   if (entries.length === 0) {
-    return {};
+    return createPlaceholderProject().files;
   }
 
   return Object.fromEntries(entries);
@@ -974,7 +1050,9 @@ export const migrateLegacySession = (session: Partial<Session> & { currentCode?:
     return {
       id: session.id ?? crypto.randomUUID(),
       messages,
-      currentProject: normalizeProject(session.currentProject as RawProjectShape),
+      currentProject: ensureScaffoldedProject(
+        normalizeProject(session.currentProject as RawProjectShape)
+      ),
       createdAt: session.createdAt ?? new Date().toISOString(),
     };
   }
@@ -991,7 +1069,7 @@ export const migrateLegacySession = (session: Partial<Session> & { currentCode?:
   return {
     id: session.id ?? crypto.randomUUID(),
     messages,
-    currentProject: createEmptyProject(),
+    currentProject: createPlaceholderProject(),
     createdAt: session.createdAt ?? new Date().toISOString(),
   };
 };

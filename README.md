@@ -1,12 +1,14 @@
 # Webmaker
 
-AI-assisted frontend studio (Next.js): chat, browser preview, ZIP/export and shareable preview (`/api/preview`).
+AI-assisted frontend studio (Next.js): chat, Docker preview, ZIP export, and shareable preview links.
+
+Generation is handled by **[Hermes](https://github.com/NousResearch/hermes-agent)** — Webmaker is the Studio UI and preview runtime.
 
 ## Quick start (local)
 
 ```bash
 cp .env.example .env.local
-# Configure Hermes — see DEPLOY.md
+# Set WEBMAKER_HERMES_PATH and WEBMAKER_HERMES_PYTHON — see deploy.md
 
 npm install
 npm run dev
@@ -14,51 +16,18 @@ npm run dev
 
 Open [http://localhost:3000/studio](http://localhost:3000/studio).
 
-## Verify configuration
+Requirements:
 
-After setting env vars:
+- **Hermes** — model/provider credentials configured in Hermes itself
+- **Docker** — for Studio preview (`docker info` must succeed)
+
+## Verify configuration
 
 ```bash
 curl -s http://localhost:3000/api/health | jq
+curl -s http://localhost:3000/api/preview/docker
 ```
 
-- **Hermes agent** — required for generation and model/provider credentials; see **[DEPLOY.md](./DEPLOY.md)**.
-- **Cloudflare Sandbox + Redis** — optional; see **[DEPLOY.md](./DEPLOY.md)** for production.
+## Deploy on EC2
 
-## Cloudflare Sandbox status
-
-The Studio now has a runtime provider selector with:
-
-- `local`
-- `cloudflare-sandbox`
-
-This repo now includes the Cloudflare gateway scaffold at `workers/sandbox-gateway/`.
-
-What is already done:
-
-- `workers/sandbox-gateway/package.json`
-- `workers/sandbox-gateway/wrangler.jsonc`
-- `workers/sandbox-gateway/Dockerfile`
-- `workers/sandbox-gateway/src/index.ts`
-- root scripts:
-  - `npm run sandbox-gateway:dev`
-  - `npm run sandbox-gateway:deploy`
-- Next.js runtime calls the gateway when `cloudflare-sandbox` is selected
-
-What is still on you:
-
-- install worker dependencies
-- configure Wrangler auth and Sandbox binding in your Cloudflare account
-- set the worker secrets/vars
-- deploy the worker
-- set the Next.js app env vars to the deployed gateway URL/token
-
-Until you deploy and configure those pieces, use `local` for actual runtime execution.
-
-## Deploy
-
-Follow **[DEPLOY.md](./DEPLOY.md)** end-to-end.
-
----
-
-This repo was bootstrapped with `create-next-app`; Next.js docs live at [nextjs.org/docs](https://nextjs.org/docs).
+See **[deploy.md](./deploy.md)** for Docker Compose deployment on AWS EC2.

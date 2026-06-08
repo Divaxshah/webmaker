@@ -1,0 +1,9 @@
+node_modules
+.next
+.git
+.webmaker/workspaces
+.env
+.env.local
+*.log
+coverage
+tsconfig.tsbuildinfo

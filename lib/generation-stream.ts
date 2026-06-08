@@ -146,7 +146,7 @@ export const buildFallbackActivities = (): AgentActivity[] => {
       status: "completed",
       title: "Interpret frontend request",
       detail: "Translate the prompt into a frontend-only build or edit plan.",
-      tool: "agent.plan",
+      tool: "hermes.plan",
     },
     {
       id: "inspect-project",
@@ -154,7 +154,7 @@ export const buildFallbackActivities = (): AgentActivity[] => {
       status: "completed",
       title: "Inspect project shape",
       detail: "Review routes, components, and styling before changing files.",
-      tool: "agent.inspect",
+      tool: "hermes.inspect",
     },
     {
       id: "edit-project",
@@ -162,7 +162,7 @@ export const buildFallbackActivities = (): AgentActivity[] => {
       status: "completed",
       title: "Apply file edits",
       detail: "Update the generated project files to match the latest request.",
-      tool: "agent.edit",
+      tool: "hermes.edit",
     },
     {
       id: "verify-project",
@@ -170,7 +170,7 @@ export const buildFallbackActivities = (): AgentActivity[] => {
       status: "completed",
       title: "Verify frontend output",
       detail: "Check imports, routes, and the final project structure for consistency.",
-      tool: "agent.verify",
+      tool: "hermes.verify",
     },
   ];
 };

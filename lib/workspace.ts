@@ -1,46 +1,15 @@
 import {
-  createEmptyProject,
+  createPlaceholderProject,
+  ensureScaffoldedProject,
   getProjectFilePaths,
-  hasScaffoldedPackageJson,
   normalizeProject,
   normalizeProjectPath,
 } from "@/lib/project";
-import type {
-  GeneratedProject,
-  ProjectFile,
-  SkillReference,
-  WorkspaceSnapshot,
-} from "@/lib/types";
-import {
-  getRuntimeConfig,
-  getRuntimeProviderLabel,
-  type RuntimeProviderMode,
-  type SelectableRuntimeProviderMode,
-} from "@/lib/runtime-config";
-/** Placeholder root for snapshots; sandbox uses this path literally, local runtime maps it under `.webmaker/workspaces`. */
+import type { GeneratedProject, ProjectFile, WorkspaceSnapshot } from "@/lib/types";
+import { getRuntimeConfig, getRuntimeProviderLabel } from "@/lib/runtime-config";
+
+/** Placeholder root for snapshots; Docker preview maps this under `.webmaker/workspaces`. */
 export const DEFAULT_WORKSPACE_ROOT = "/workspace";
-
-export const BUILTIN_SKILLS: SkillReference[] = [
-  {
-    id: "frontend-design",
-    title: "Frontend Design",
-    category: "design",
-    summary:
-      "Distinctive, production-grade interfaces; bold aesthetic direction; aligned with `.agents/skills/frontend-design`.",
-    source: "builtin",
-  },
-  {
-    id: "ui-ux-pro-max",
-    title: "UI/UX Pro Max",
-    category: "design",
-    summary:
-      "UI/UX intelligence (a11y, layout, motion, forms, charts…); aligned with `.agents/skills/ui-ux-pro-max`.",
-    source: "builtin",
-  },
-];
-
-/** Skill IDs enabled by default in new Studio sessions; also used when rehydrating if `activeSkillIds` was never saved. */
-export const DEFAULT_ACTIVE_SKILL_IDS: string[] = BUILTIN_SKILLS.map((s) => s.id);
 
 const cloneProjectFile = (file: ProjectFile): ProjectFile => ({
   code: file.code,
@@ -68,12 +37,8 @@ export const ensureWorkspaceProjectIntegrity = (
   const normalized = normalizeProject(project);
   const filePaths = Object.keys(normalized.files);
 
-  if (filePaths.length === 0 || !hasScaffoldedPackageJson(normalized)) {
-    return {
-      ...createEmptyProject(),
-      ...normalized,
-      files: hasScaffoldedPackageJson(normalized) ? normalized.files : {},
-    };
+  if (filePaths.length === 0) {
+    return createPlaceholderProject();
   }
 
   const entry = normalized.files[normalized.entry]
@@ -82,8 +47,10 @@ export const ensureWorkspaceProjectIntegrity = (
       ? "/src/main.tsx"
       : filePaths.sort((left, right) => left.localeCompare(right))[0];
 
+  const scaffolded = ensureScaffoldedProject(normalized);
+
   const files = Object.fromEntries(
-    Object.entries(normalized.files).map(([filePath, file]) => [
+    Object.entries(scaffolded.files).map(([filePath, file]) => [
       filePath,
       {
         ...cloneProjectFile(file),
@@ -106,19 +73,14 @@ export const createWorkspaceSnapshot = (
   const runtimeMode = getRuntimeConfig().mode;
   return {
     id: workspaceId,
-    project: ensureWorkspaceProjectIntegrity(project ?? createEmptyProject()),
+    project: ensureWorkspaceProjectIntegrity(project ?? createPlaceholderProject()),
     runtime: {
       provider: runtimeMode,
       status: "idle",
       rootPath: DEFAULT_WORKSPACE_ROOT,
       workspaceId,
-      providerLabel: getRuntimeProviderLabel(runtimeMode),
-      providerMeta:
-        runtimeMode === "cloudflare-sandbox"
-          ? { mode: "cloudflare-sandbox" }
-          : runtimeMode === "virtual"
-            ? { mode: "in-memory" }
-            : { mode: "local" },
+      providerLabel: getRuntimeProviderLabel(),
+      providerMeta: { mode: "local" },
       preview: {
         status: "idle",
       },
@@ -133,25 +95,11 @@ export const workspaceFromProject = (
 ): WorkspaceSnapshot =>
   createWorkspaceSnapshot(project, workspaceId ?? generateWorkspaceId());
 
-/** Normalize persisted sessions onto supported runtime providers. */
+/** Normalize persisted sessions onto the supported local runtime provider. */
 export const coerceWorkspaceToSupportedProvider = (
   workspace: WorkspaceSnapshot
 ): WorkspaceSnapshot => {
-  const runtimeConfig = getRuntimeConfig();
-  const legacyProvider = workspace.runtime as { provider?: string };
-  const provider: RuntimeProviderMode =
-    !runtimeConfig.runtimeToolsEnabled
-      ? "virtual"
-      : legacyProvider.provider === "cloudflare-sandbox"
-        ? "cloudflare-sandbox"
-        : legacyProvider.provider === "local"
-          ? "local"
-          : runtimeConfig.mode;
-
-  if (
-    workspace.runtime.provider === provider &&
-    workspace.runtime.providerLabel === getRuntimeProviderLabel(provider)
-  ) {
+  if (workspace.runtime.provider === "local") {
     return workspace;
   }
 
@@ -159,52 +107,17 @@ export const coerceWorkspaceToSupportedProvider = (
     ...workspace,
     runtime: {
       ...workspace.runtime,
-      provider,
-      providerLabel: getRuntimeProviderLabel(provider),
+      provider: "local",
+      providerLabel: getRuntimeProviderLabel(),
       status: "idle",
       preview: { status: "idle" },
-      providerMeta:
-        provider === "cloudflare-sandbox"
-          ? { mode: "cloudflare-sandbox" }
-          : provider === "virtual"
-            ? { mode: "in-memory" }
-            : { mode: "local" },
+      providerMeta: { mode: "local" },
       lastCommand: undefined,
       lastOutput: undefined,
       lastError: undefined,
     },
   };
 };
-
-export const setWorkspaceRuntimeProvider = (
-  workspace: WorkspaceSnapshot,
-  provider: SelectableRuntimeProviderMode
-): WorkspaceSnapshot => ({
-  ...workspace,
-  runtime: {
-    ...workspace.runtime,
-    provider,
-    providerLabel: getRuntimeProviderLabel(provider),
-    status: "idle",
-    lastCommand: undefined,
-    lastOutput: undefined,
-    lastError: undefined,
-    lastProcessId: undefined,
-    providerMeta:
-      provider === "cloudflare-sandbox"
-        ? {
-            mode: "cloudflare-sandbox",
-            transport: "sdk",
-          }
-        : {
-            mode: "local",
-          },
-    preview: {
-      status: "idle",
-    },
-  },
-  updatedAt: new Date().toISOString(),
-});
 
 export const syncProjectToWorkspace = (
   workspace: WorkspaceSnapshot,
@@ -222,148 +135,24 @@ export const syncWorkspaceToProject = (
 export const listWorkspaceFilePaths = (workspace: WorkspaceSnapshot): string[] =>
   getProjectFilePaths(workspace.project);
 
-export const readWorkspaceFiles = (
+export const getWorkspaceFile = (
   workspace: WorkspaceSnapshot,
-  paths: string[]
-): {
-  files: Record<string, string>;
-  missing: string[];
-} => {
-  const normalizedPaths = paths.map((filePath) => normalizeProjectPath(filePath));
-
-  return {
-    files: Object.fromEntries(
-      normalizedPaths
-        .filter((filePath) => Boolean(workspace.project.files[filePath]))
-        .map((filePath) => [filePath, workspace.project.files[filePath].code])
-    ),
-    missing: normalizedPaths.filter((filePath) => !workspace.project.files[filePath]),
-  };
+  filePath: string
+): ProjectFile | undefined => {
+  const normalized = normalizeProjectPath(filePath);
+  return workspace.project.files[normalized];
 };
 
-export const inspectWorkspace = (
-  workspace: WorkspaceSnapshot,
-  paths?: string[]
-): {
-  title: string;
-  summary: string;
-  entry: string;
-  dependencies: Record<string, string>;
-  fileCount: number;
-  files: string[] | Record<string, { length: number }>;
-  missing: string[];
-  runtime: WorkspaceSnapshot["runtime"];
-} => {
-  const normalizedPaths = (paths ?? []).map((filePath) =>
-    normalizeProjectPath(filePath)
-  );
-
-  const files =
-    normalizedPaths.length > 0
-      ? Object.fromEntries(
-          normalizedPaths
-            .filter((filePath) => workspace.project.files[filePath])
-            .map((filePath) => [
-              filePath,
-              { length: workspace.project.files[filePath].code.length },
-            ])
-        )
-      : listWorkspaceFilePaths(workspace);
-
-  return {
-    title: workspace.project.title,
-    summary: workspace.project.summary,
-    entry: workspace.project.entry,
-    dependencies: workspace.project.dependencies,
-    fileCount: Object.keys(workspace.project.files).length,
-    files,
-    missing: normalizedPaths.filter((filePath) => !workspace.project.files[filePath]),
-    runtime: workspace.runtime,
-  };
-};
-
-export const writeWorkspaceFiles = (
-  workspace: WorkspaceSnapshot,
-  writes: Array<[string, ProjectFile]>
-): {
-  workspace: WorkspaceSnapshot;
-  created: string[];
-  updated: string[];
-} => {
-  const nextProject = cloneProject(workspace.project);
-  const created: string[] = [];
-  const updated: string[] = [];
-
-  for (const [rawPath, file] of writes) {
-    const filePath = normalizeProjectPath(rawPath);
-    if (nextProject.files[filePath]) {
-      updated.push(filePath);
-    } else {
-      created.push(filePath);
-    }
-
-    nextProject.files[filePath] = cloneProjectFile(file);
-  }
-
-  return {
-    workspace: syncProjectToWorkspace(workspace, nextProject),
-    created,
-    updated,
-  };
-};
-
-export const renameWorkspaceFile = (
-  workspace: WorkspaceSnapshot,
-  from: string,
-  to: string
-): WorkspaceSnapshot => {
-  const sourcePath = normalizeProjectPath(from);
-  const targetPath = normalizeProjectPath(to);
-  const nextProject = cloneProject(workspace.project);
-
-  if (!nextProject.files[sourcePath]) {
-    throw new Error(`Cannot rename missing file ${sourcePath}.`);
-  }
-
-  if (nextProject.files[targetPath]) {
-    throw new Error(`Cannot rename to existing file ${targetPath}.`);
-  }
-
-  nextProject.files[targetPath] = cloneProjectFile(nextProject.files[sourcePath]);
-  delete nextProject.files[sourcePath];
-
-  if (nextProject.entry === sourcePath) {
-    nextProject.entry = targetPath;
-  }
-
-  return syncProjectToWorkspace(workspace, nextProject);
-};
-
-export const deleteWorkspaceFiles = (
-  workspace: WorkspaceSnapshot,
-  paths: string[]
-): {
-  workspace: WorkspaceSnapshot;
-  deleted: string[];
-  missing: string[];
-} => {
-  const nextProject = cloneProject(workspace.project);
-  const deleted: string[] = [];
-  const missing: string[] = [];
-
-  for (const rawPath of paths) {
-    const filePath = normalizeProjectPath(rawPath);
-    if (!nextProject.files[filePath]) {
-      missing.push(filePath);
-      continue;
-    }
-    delete nextProject.files[filePath];
-    deleted.push(filePath);
-  }
-
-  return {
-    workspace: syncProjectToWorkspace(workspace, nextProject),
-    deleted,
-    missing,
-  };
-};
+export const cloneWorkspaceSnapshot = (
+  workspace: WorkspaceSnapshot
+): WorkspaceSnapshot => ({
+  ...workspace,
+  project: cloneProject(workspace.project),
+  runtime: {
+    ...workspace.runtime,
+    preview: { ...workspace.runtime.preview },
+    providerMeta: workspace.runtime.providerMeta
+      ? { ...workspace.runtime.providerMeta }
+      : undefined,
+  },
+});

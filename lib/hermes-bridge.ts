@@ -1,10 +1,10 @@
 import { spawn } from "node:child_process";
-import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { GenerationStreamEvent } from "@/lib/agent";
+import type { GenerationStreamEvent } from "@/lib/generation-stream";
+import { mergeProjectWithBootstrap } from "@/lib/download-bootstrap";
 import {
-  createEmptyProject,
-  isPlaceholderProject,
+  createPlaceholderProject,
   normalizeProject,
   resolveProjectEntry,
 } from "@/lib/project";
@@ -28,6 +28,20 @@ interface RunHermesAgentLoopOptions {
 const WORKSPACE_BASE = path.join(process.cwd(), ".webmaker", "workspaces");
 const MAX_SCAN_BYTES = 2_000_000;
 const IGNORED_DIRS = new Set([".git", ".next", "node_modules", "dist", "build"]);
+
+const IGNORED_SCAN_FILES = new Set([
+  "package-lock.json",
+  "yarn.lock",
+  "pnpm-lock.yaml",
+  "bun.lock",
+]);
+
+const shouldSkipScannedFile = (name: string): boolean => {
+  if (IGNORED_SCAN_FILES.has(name)) return true;
+  if (name.endsWith(".tsbuildinfo")) return true;
+  if (name === "vite.config.d.ts") return true;
+  return false;
+};
 
 interface HermesBridgeEvent {
   type?: unknown;
@@ -58,10 +72,9 @@ interface HermesRuntimeInfo {
   hermesHome: string;
 }
 
-const DEFAULT_HERMES_PATH =
-  "/media/avinyaa/4ad5a4e0-4ac1-480f-90c1-386d861b6f342/agent/hermes-agent";
-
-const hermesPath = () => process.env.WEBMAKER_HERMES_PATH || DEFAULT_HERMES_PATH;
+const hermesPath = () =>
+  process.env.WEBMAKER_HERMES_PATH?.trim() ||
+  path.resolve(process.cwd(), "../hermes-agent");
 const hermesPython = () => process.env.WEBMAKER_HERMES_PYTHON || "python3";
 const hermesHome = () => process.env.WEBMAKER_HERMES_HOME || "";
 
@@ -142,36 +155,16 @@ const assertInside = (base: string, target: string) => {
   }
 };
 
-const clearWorkspaceExceptMetadata = async (workspaceRoot: string) => {
-  let entries;
-  try {
-    entries = await readdir(workspaceRoot, { withFileTypes: true });
-  } catch {
-    return;
-  }
-
-  for (const entry of entries) {
-    if (entry.name === ".webmaker-project.json") continue;
-    const absolutePath = path.join(workspaceRoot, entry.name);
-    assertInside(workspaceRoot, absolutePath);
-    await rm(absolutePath, { recursive: true, force: true });
-  }
-};
-
 const materializeProject = async (workspaceRoot: string, project: GeneratedProject) => {
   await mkdir(workspaceRoot, { recursive: true });
 
-  // Greenfield: Hermes scaffolds via create-new-project — wipe stale files, do not seed templates.
-  if (isPlaceholderProject(project)) {
-    await clearWorkspaceExceptMetadata(workspaceRoot);
-  } else {
-    for (const [projectPath, file] of Object.entries(project.files)) {
-      const relativePath = projectPath.replace(/^\/+/, "");
-      const absolutePath = path.join(workspaceRoot, relativePath);
-      assertInside(workspaceRoot, absolutePath);
-      await mkdir(path.dirname(absolutePath), { recursive: true });
-      await writeFile(absolutePath, file.code, "utf8");
-    }
+  const files = mergeProjectWithBootstrap(project);
+  for (const [projectPath, file] of Object.entries(files)) {
+    const relativePath = projectPath.replace(/^\/+/, "");
+    const absolutePath = path.join(workspaceRoot, relativePath);
+    assertInside(workspaceRoot, absolutePath);
+    await mkdir(path.dirname(absolutePath), { recursive: true });
+    await writeFile(absolutePath, file.code, "utf8");
   }
 
   await writeFile(
@@ -201,6 +194,7 @@ const scanFiles = async (
     }
 
     if (!entry.isFile()) continue;
+    if (shouldSkipScannedFile(entry.name)) continue;
     const statlessContent = await readFile(absolutePath);
     if (statlessContent.byteLength > MAX_SCAN_BYTES) continue;
     const projectPath = `/${path.relative(workspaceRoot, absolutePath).replace(/\\/g, "/")}`;
@@ -363,8 +357,7 @@ export const readHermesRuntimeInfo = async (): Promise<HermesRuntimeInfo> => {
 };
 
 export const runHermesAgentLoop = async (options: RunHermesAgentLoopOptions) => {
-  const project = options.currentProject ?? createEmptyProject();
-  const greenfield = isPlaceholderProject(project);
+  const project = options.currentProject ?? createPlaceholderProject();
   const workspaceRoot = path.join(WORKSPACE_BASE, toWorkspaceId(options));
   const bridgePath = hermesPath();
   const python = hermesPython();
@@ -420,7 +413,6 @@ export const runHermesAgentLoop = async (options: RunHermesAgentLoopOptions) => 
     workspaceRoot,
     messages: options.messages,
     currentProject: project,
-    greenfield,
     model: hermesModel,
     provider: hermesProvider,
     runtimePolicy: { frontendOnly: true },

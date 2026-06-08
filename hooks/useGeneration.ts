@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useRef } from "react";
-import { buildFallbackActivities, type GenerationStreamEvent } from "@/lib/agent";
-import { createEmptyProject, isPlaceholderProject } from "@/lib/project";
+import {
+  buildFallbackActivities,
+  type GenerationStreamEvent,
+} from "@/lib/generation-stream";
 import { createId } from "@/lib/utils";
 import type { Message } from "@/lib/types";
 import {
@@ -78,10 +80,6 @@ export const useGeneration = () => {
       state.setGenerating(true);
       state.setStreamingText("");
 
-      if (isPlaceholderProject(activeSession.currentProject)) {
-        state.setCurrentProject(createEmptyProject(), activeSession.id);
-      }
-
       state.addMessage(
         {
           id: userMessageId,
@@ -120,11 +118,6 @@ export const useGeneration = () => {
         abortControllerRef.current = abortController;
 
         const session = getActiveSession(useAppStore.getState());
-        const currentProject = includeCurrentProject
-          ? isPlaceholderProject(session.currentProject)
-            ? createEmptyProject()
-            : session.currentProject
-          : null;
 
         const response = await fetch("/api/generate", {
           method: "POST",
@@ -134,7 +127,7 @@ export const useGeneration = () => {
           signal: abortController.signal,
           body: JSON.stringify({
             messages: toApiMessages(latestMessages),
-            currentProject,
+            currentProject: includeCurrentProject ? session.currentProject : null,
             sessionWorkspace: session.workspace ?? null,
           }),
         });

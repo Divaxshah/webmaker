@@ -10,16 +10,10 @@ import type {
   Session,
   WorkspaceSnapshot,
 } from "@/lib/types";
-import {
-  coerceLuminoModelId,
-  DEFAULT_LUMINO_MODEL,
-  type LuminoModelId,
-} from "@/lib/models";
 import { createId, STARTER_PROJECT } from "@/lib/utils";
 import {
   coerceWorkspaceToSupportedProvider,
   createWorkspaceSnapshot,
-  DEFAULT_ACTIVE_SKILL_IDS,
   syncProjectToWorkspace,
 } from "@/lib/workspace";
 
@@ -29,7 +23,6 @@ interface AppState {
   isGenerating: boolean;
   streamingText: string;
   lastPrompt: string;
-  selectedModelId: LuminoModelId;
   runtimeError: RuntimeErrorState | null;
   newSession: () => string;
   deleteSession: (id: string) => void;
@@ -37,9 +30,7 @@ interface AppState {
   setGenerating: (value: boolean) => void;
   setStreamingText: (value: string) => void;
   setLastPrompt: (value: string) => void;
-  setSelectedModelId: (value: LuminoModelId) => void;
   setRuntimeError: (value: RuntimeErrorState | null) => void;
-  setActiveSkillIds: (skillIds: string[], sessionId?: string) => void;
   setWorkspaceSnapshot: (workspace: WorkspaceSnapshot, sessionId?: string) => void;
   addMessage: (message: Message, sessionId?: string) => void;
   updateMessage: (
@@ -56,7 +47,6 @@ const createSession = (): Session => ({
   messages: [],
   currentProject: STARTER_PROJECT,
   workspace: createWorkspaceSnapshot(STARTER_PROJECT),
-  activeSkillIds: [...DEFAULT_ACTIVE_SKILL_IDS],
   createdAt: new Date().toISOString(),
 });
 
@@ -70,7 +60,6 @@ export const useAppStore = create<AppState>()(
       isGenerating: false,
       streamingText: "",
       lastPrompt: "",
-      selectedModelId: DEFAULT_LUMINO_MODEL,
       runtimeError: null,
       newSession: () => {
         const session = createSession();
@@ -114,19 +103,7 @@ export const useAppStore = create<AppState>()(
       setGenerating: (value) => set({ isGenerating: value }),
       setStreamingText: (value) => set({ streamingText: value }),
       setLastPrompt: (value) => set({ lastPrompt: value }),
-      setSelectedModelId: (value) => set({ selectedModelId: value }),
       setRuntimeError: (value) => set({ runtimeError: value }),
-      setActiveSkillIds: (skillIds, sessionId) =>
-        set((state) => {
-          const targetId = sessionId ?? state.activeSessionId;
-          return {
-            sessions: state.sessions.map((session) =>
-              session.id === targetId
-                ? { ...session, activeSkillIds: [...skillIds] }
-                : session
-            ),
-          };
-        }),
       setWorkspaceSnapshot: (workspace, sessionId) =>
         set((state) => {
           const targetId = sessionId ?? state.activeSessionId;
@@ -206,7 +183,6 @@ export const useAppStore = create<AppState>()(
         sessions: state.sessions,
         activeSessionId: state.activeSessionId,
         lastPrompt: state.lastPrompt,
-        selectedModelId: state.selectedModelId,
       }),
       merge: (persistedState, currentState) => {
         const persisted = persistedState as Partial<AppState> & {
@@ -224,8 +200,6 @@ export const useAppStore = create<AppState>()(
                     migrated.currentProject
                   )
                 ),
-                activeSkillIds:
-                  migrated.activeSkillIds ?? [...DEFAULT_ACTIVE_SKILL_IDS],
               };
             })
           : currentState.sessions;
@@ -241,10 +215,6 @@ export const useAppStore = create<AppState>()(
           ...persisted,
           sessions,
           activeSessionId,
-        selectedModelId:
-          typeof persisted.selectedModelId === "string"
-            ? coerceLuminoModelId(persisted.selectedModelId)
-            : currentState.selectedModelId,
         };
       },
     }
@@ -263,9 +233,6 @@ export const getActiveSessionMessages = (state: AppState): Message[] =>
 
 export const getActiveSessionProject = (state: AppState): GeneratedProject =>
   getActiveSession(state)?.currentProject ?? STARTER_PROJECT;
-
-export const getActiveSessionSkillIds = (state: AppState): string[] =>
-  getActiveSession(state)?.activeSkillIds ?? [];
 
 export const getActiveSessionWorkspace = (state: AppState): WorkspaceSnapshot | undefined =>
   getActiveSession(state)?.workspace;

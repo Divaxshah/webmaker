@@ -71,7 +71,7 @@ export interface WorkspacePreviewState {
 }
 
 export interface WorkspaceRuntimeState {
-  provider: "virtual" | "local" | "cloudflare-sandbox";
+  provider: "local";
   status: "idle" | "provisioning" | "ready" | "error";
   rootPath: string;
   workspaceId: string;
@@ -91,21 +91,11 @@ export interface WorkspaceSnapshot {
   updatedAt: string;
 }
 
-export interface SkillReference {
-  id: string;
-  title: string;
-  category: string;
-  summary: string;
-  source: "builtin" | "custom";
-  tags?: string[];
-}
-
 export interface Session {
   id: string;
   messages: Message[];
   currentProject: GeneratedProject;
   workspace?: WorkspaceSnapshot;
-  activeSkillIds?: string[];
   createdAt: string;
 }
 

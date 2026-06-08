@@ -1,14 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { ErrorBanner } from "@/components/preview/ErrorBanner";
-import { StackBlitzFrameWithRetry } from "@/components/preview/StackBlitzFrame";
+import { DockerPreviewFrameWithRetry } from "@/components/preview/DockerPreviewFrame";
 import { CodeViewer } from "@/components/preview/CodeViewer";
 import { ConsoleView } from "@/components/preview/ConsoleView";
 import { TabBar, type PreviewTab } from "@/components/preview/TabBar";
 import { getProjectPrimaryFile, isPlaceholderProject } from "@/lib/project";
-import { getPreviewSessionKey } from "@/lib/preview-session-key";
-import { getStackBlitzEmbedDefinition } from "@/lib/stackblitz-project";
 import type { GeneratedProject, RuntimeErrorState } from "@/lib/types";
 import { Cpu, ExternalLink, Link2, Loader2, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
@@ -16,6 +14,7 @@ import { Button } from "@/components/ui/button";
 
 interface PreviewPanelProps {
   project: GeneratedProject;
+  workspaceId: string;
   runtimeError: RuntimeErrorState | null;
   isGenerating?: boolean;
   onDismissError: () => void;
@@ -25,6 +24,7 @@ interface PreviewPanelProps {
 
 export function PreviewPanel({
   project,
+  workspaceId,
   runtimeError,
   isGenerating,
   onDismissError,
@@ -44,40 +44,47 @@ export function PreviewPanel({
     }
   }, [project.files, runtimeError?.filePath]);
 
-  const previewSessionKey = useMemo(() => getPreviewSessionKey(project), [project]);
   const isStarterProject = isPlaceholderProject(project);
 
   const [openingPreview, setOpeningPreview] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
+  const [dockerForceRestart, setDockerForceRestart] = useState(false);
+  const [dockerPreviewReady, setDockerPreviewReady] = useState(false);
+
+  useEffect(() => {
+    setDockerPreviewReady(false);
+  }, [workspaceId]);
 
   const retryPreview = useCallback(() => {
+    setDockerPreviewReady(false);
+    setDockerForceRestart(true);
+    void fetch("/api/preview/docker", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ workspaceId }),
+    });
     setPreviewRefreshKey((k) => k + 1);
-  }, []);
+  }, [workspaceId]);
 
   const openPreview = useCallback(async () => {
     setOpeningPreview(true);
     try {
-      const sdk = (await import("@stackblitz/sdk")).default;
-      const def = getStackBlitzEmbedDefinition(project);
-      await sdk.openProject(
-        {
-          title: def.title,
-          description: def.description,
-          template: def.template,
-          files: def.files,
-        },
-        {
-          openFile: def.openFile,
-          view: "preview",
-          newWindow: true,
-        }
-      );
+      const response = await fetch("/api/preview/docker", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project, workspaceId }),
+      });
+      const json = (await response.json()) as { url?: string; error?: string };
+      if (!response.ok || !json.url) {
+        throw new Error(json.error ?? "Failed to start Docker preview.");
+      }
+      window.open(json.url, "_blank", "noopener,noreferrer");
     } finally {
       setOpeningPreview(false);
     }
-  }, [project]);
+  }, [project, workspaceId]);
 
   const copyPreviewLink = useCallback(async () => {
     let url = previewUrl;
@@ -178,6 +185,8 @@ export function PreviewPanel({
     );
   }
 
+  const showPreviewRuntime = !isStarterProject;
+
   const previewBody = () => (
     <div className="relative min-h-0 flex-1">
       <div
@@ -185,13 +194,21 @@ export function PreviewPanel({
           activeTab === "preview" ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
         }`}
       >
-        <div className="flex h-full min-h-0 flex-col">
-          <StackBlitzFrameWithRetry
-            key={`${previewSessionKey}-${previewRefreshKey}`}
-            project={project}
-            refreshKey={previewRefreshKey}
-            onRetryFullRemount={retryPreview}
-          />
+        <div className="relative flex h-full min-h-0 flex-col">
+          {showPreviewRuntime ? (
+            <DockerPreviewFrameWithRetry
+              key={`docker-${workspaceId}`}
+              project={project}
+              workspaceId={workspaceId}
+              refreshKey={previewRefreshKey}
+              forceRestart={dockerForceRestart}
+              onRetryFullRemount={retryPreview}
+              onReady={() => {
+                setDockerForceRestart(false);
+                setDockerPreviewReady(true);
+              }}
+            />
+          ) : null}
         </div>
       </div>
 
@@ -214,7 +231,7 @@ export function PreviewPanel({
           activeTab === "console" ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
         }`}
       >
-        <ConsoleView />
+        <ConsoleView workspaceId={workspaceId} previewReady={dockerPreviewReady} />
       </div>
     </div>
   );
@@ -233,7 +250,7 @@ export function PreviewPanel({
               variant="outline"
               size="sm"
               onClick={retryPreview}
-              title="Refresh StackBlitz preview"
+              title="Restart Docker preview"
               className="rounded-xl border-border bg-background hover:bg-secondary text-foreground h-8 w-8 p-0 transition-all shadow-sm"
             >
               <RefreshCw size={13} />
@@ -259,7 +276,7 @@ export function PreviewPanel({
               size="sm"
               onClick={() => void openPreview()}
               disabled={openingPreview}
-              title="Open StackBlitz preview in a new tab"
+              title="Open Docker preview in a new tab"
               className="rounded-xl bg-primary text-primary-foreground h-8 px-3 text-xs font-bold transition-all shadow-lg shadow-primary/20 gap-1.5"
             >
               {openingPreview ? (

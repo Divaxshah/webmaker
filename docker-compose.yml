@@ -1,0 +1,27 @@
+services:
+  webmaker:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      DOCKER_SOCKET: /var/run/docker.sock
+      WEBMAKER_DOCKER_IMAGE: node:20-alpine
+      WEBMAKER_HERMES_PATH: /hermes-agent
+      WEBMAKER_HERMES_PYTHON: /hermes-agent/.venv/bin/python
+    volumes:
+      # Studio preview: spawn Vite containers on the host Docker daemon.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Persist generated workspaces across container restarts.
+      - webmaker-workspaces:/app/.webmaker/workspaces
+      # Hermes checkout (sibling repo on the host).
+      - ${WEBMAKER_HERMES_PATH:-../hermes-agent}:/hermes-agent:ro
+    group_add:
+      # Match host docker group GID so the app user can access the socket.
+      - ${DOCKER_GID:-999}
+
+volumes:
+  webmaker-workspaces:

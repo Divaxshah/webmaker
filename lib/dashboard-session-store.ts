@@ -1,7 +1,6 @@
 import "server-only";
 
 import type { Session } from "@/lib/types";
-import type { LuminoModelId } from "@/lib/models";
 import { getRedis } from "@/lib/redis-client";
 
 const KEY_PREFIX = "wm:dashboard:";
@@ -12,7 +11,6 @@ export interface DashboardPersistPayload {
   sessions: Session[];
   activeSessionId: string;
   lastPrompt: string;
-  selectedModelId: LuminoModelId;
 }
 
 export interface StoredDashboardSession {

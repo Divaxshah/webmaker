@@ -8,9 +8,8 @@ import {
   setAppliedServerTimestamp,
 } from "@/lib/device-id";
 import type { DashboardPersistPayload } from "@/lib/dashboard-session-store";
-import { coerceLuminoModelId, DEFAULT_LUMINO_MODEL } from "@/lib/models";
 import type { Session } from "@/lib/types";
-import { createWorkspaceSnapshot, DEFAULT_ACTIVE_SKILL_IDS, syncProjectToWorkspace } from "@/lib/workspace";
+import { createWorkspaceSnapshot, syncProjectToWorkspace } from "@/lib/workspace";
 import { useAppStore } from "@/lib/store";
 
 const DEBOUNCE_MS = 2500;
@@ -23,7 +22,6 @@ const hydrateSession = (session: Session): Session => {
       migrated.workspace ?? createWorkspaceSnapshot(migrated.currentProject),
       migrated.currentProject
     ),
-    activeSkillIds: migrated.activeSkillIds ?? [...DEFAULT_ACTIVE_SKILL_IDS],
   };
 };
 
@@ -34,7 +32,6 @@ const hydrateSession = (session: Session): Session => {
 export function useDashboardSessionSync(enabled = true) {
   const hydrateDone = useRef(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** After Redis returns 503 (misconfigured host, ENOTFOUND, etc.), skip PUT spam. */
   const redisSyncDisabledRef = useRef(false);
 
   useEffect(() => {
@@ -88,11 +85,6 @@ export function useDashboardSessionSync(enabled = true) {
           sessions,
           activeSessionId: payload.activeSessionId,
           lastPrompt: payload.lastPrompt,
-          selectedModelId: coerceLuminoModelId(
-            typeof payload.selectedModelId === "string"
-              ? payload.selectedModelId
-              : DEFAULT_LUMINO_MODEL
-          ),
         });
         setAppliedServerTimestamp(data.updatedAt);
       } catch {
@@ -129,7 +121,6 @@ export function useDashboardSessionSync(enabled = true) {
         sessions: state.sessions,
         activeSessionId: state.activeSessionId,
         lastPrompt: state.lastPrompt,
-        selectedModelId: state.selectedModelId,
       };
 
       void (async () => {
@@ -152,24 +143,28 @@ export function useDashboardSessionSync(enabled = true) {
             setAppliedServerTimestamp(json.updatedAt);
           }
         } catch {
-          /* ignore */
+          /* offline */
         }
       })();
     };
 
-    const unsub = useAppStore.subscribe(() => {
+    const unsubscribe = useAppStore.subscribe((state, prev) => {
+      if (
+        state.sessions === prev.sessions &&
+        state.activeSessionId === prev.activeSessionId &&
+        state.lastPrompt === prev.lastPrompt
+      ) {
+        return;
+      }
+
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
       }
-
-      debounceRef.current = setTimeout(() => {
-        debounceRef.current = null;
-        push();
-      }, DEBOUNCE_MS);
+      debounceRef.current = setTimeout(push, DEBOUNCE_MS);
     });
 
     return () => {
-      unsub();
+      unsubscribe();
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
       }

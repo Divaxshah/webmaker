@@ -6,11 +6,8 @@ import type { NextConfig } from "next";
 const webmakerRoot = path.dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@stackblitz/sdk"],
-  /** Avoid webpack/RSC bundling glitches with Upstash’s ESM client (fixes intermittent `__webpack_exec__` / `.call` errors on API routes). */
-  serverExternalPackages: ["@upstash/redis"],
-  // Monorepo: lock Turbopack + PostCSS resolution to this app so `tailwindcss` resolves from
-  // `webmaker/node_modules`, not the parent repo (which has package.json but no node_modules).
+  output: "standalone",
+  serverExternalPackages: ["@upstash/redis", "dockerode"],
   turbopack: {
     root: webmakerRoot,
     resolveAlias: {
@@ -21,22 +18,7 @@ const nextConfig: NextConfig = {
       ),
     },
   },
-  allowedDevOrigins: [
-    "localhost",
-    "127.0.0.1",
-    "192.168.29.74",
-  ],
-  async headers() {
-    const crossOriginIsolation = [
-      { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
-      { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
-    ];
-
-    return [
-      { source: "/studio", headers: crossOriginIsolation },
-      { source: "/studio/:path*", headers: crossOriginIsolation },
-    ];
-  },
+  allowedDevOrigins: ["localhost", "127.0.0.1", "192.168.29.74"],
 };
 
 export default nextConfig;

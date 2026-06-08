@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import type { GenerationStreamEvent } from "@/lib/agent";
+import type { GenerationStreamEvent } from "@/lib/generation-stream";
 import { runHermesAgentLoop } from "@/lib/hermes-bridge";
 import { normalizeProject } from "@/lib/project";
 import type { GeneratedProject, WorkspaceSnapshot } from "@/lib/types";

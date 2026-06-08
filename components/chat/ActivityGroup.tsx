@@ -19,6 +19,7 @@ import {
   Wand2,
 } from "lucide-react";
 import type { AgentActivity, Message } from "@/lib/types";
+import { ReasoningStream } from "@/components/chat/ReasoningStream";
 import { StatusIndicator } from "@/components/chat/StatusIndicator";
 
 interface ActivityGroupProps {
@@ -34,44 +35,52 @@ interface ActivityPhase {
   isComplete: boolean;
 }
 
+type TimelineEntry =
+  | { kind: "phase"; phase: ActivityPhase }
+  | { kind: "reasoning"; activity: AgentActivity };
+
 function isReasoningActivity(activity: AgentActivity): boolean {
   return activity.tool === "hermes.reasoning" || activity.title === "Reasoning";
 }
 
-function groupActivitiesIntoPhases(
+function buildActivityTimeline(
   activities: AgentActivity[],
   isGenerationComplete: boolean
-): ActivityPhase[] {
-  const phases: ActivityPhase[] = [];
+): TimelineEntry[] {
+  const timeline: TimelineEntry[] = [];
   let current: AgentActivity[] = [];
   let phaseIndex = 0;
+  let reasoningIndex = 0;
+
+  const flushPhase = (isComplete: boolean) => {
+    if (current.length === 0) return;
+    timeline.push({
+      kind: "phase",
+      phase: {
+        id: `phase-${phaseIndex++}`,
+        activities: current,
+        isComplete,
+      },
+    });
+    current = [];
+  };
 
   for (const activity of activities) {
     if (isReasoningActivity(activity)) {
-      if (activity.status === "completed") {
-        if (current.length > 0) {
-          phases.push({
-            id: `phase-${phaseIndex++}`,
-            activities: current,
-            isComplete: true,
-          });
-          current = [];
-        }
+      flushPhase(true);
+      if (activity.status === "active") {
+        timeline.push({
+          kind: "reasoning",
+          activity,
+        });
       }
       continue;
     }
     current.push(activity);
   }
 
-  if (current.length > 0) {
-    phases.push({
-      id: `phase-${phaseIndex}`,
-      activities: current,
-      isComplete: isGenerationComplete,
-    });
-  }
-
-  return phases;
+  flushPhase(isGenerationComplete);
+  return timeline;
 }
 
 function phaseSummary(activities: AgentActivity[]): string {
@@ -159,13 +168,21 @@ export function ActivityGroup({
     assistantMessage?.status === "done" ||
     assistantMessage?.status === "cancelled";
 
-  const phases = useMemo(
+  const timeline = useMemo(
     () =>
-      groupActivitiesIntoPhases(
+      buildActivityTimeline(
         assistantMessage?.activities ?? [],
         isComplete
       ),
     [assistantMessage?.activities, isComplete]
+  );
+
+  const phases = useMemo(
+    () =>
+      timeline
+        .filter((entry): entry is { kind: "phase"; phase: ActivityPhase } => entry.kind === "phase")
+        .map((entry) => entry.phase),
+    [timeline]
   );
 
   const [collapsedPhases, setCollapsedPhases] = useState<Set<string>>(() => new Set());
@@ -216,7 +233,7 @@ export function ActivityGroup({
 
       {assistantMessage && (
         <div className="min-w-0 space-y-3 overflow-hidden">
-          {assistantMessage.status === "thinking" && (
+          {assistantMessage.status === "thinking" && phases.length === 0 && (
             <StatusIndicator status="thinking" />
           )}
 
@@ -227,10 +244,24 @@ export function ActivityGroup({
             </div>
           )}
 
-          {phases.map((phase, phaseIndex) => {
+          {timeline.map((entry, entryIndex) => {
+            if (entry.kind === "reasoning") {
+              return (
+                <ReasoningStream
+                  key={`${entry.activity.id}-${entryIndex}`}
+                  activity={entry.activity}
+                />
+              );
+            }
+
+            const phase = entry.phase;
+            const phaseIndex = phases.findIndex((p) => p.id === phase.id);
             const isCollapsed = collapsedPhases.has(phase.id);
             const isActivePhase =
-              isWriting && isLatest && phaseIndex === phases.length - 1 && !phase.isComplete;
+              isWriting &&
+              isLatest &&
+              phaseIndex === phases.length - 1 &&
+              !phase.isComplete;
 
             return (
               <WorkPhaseCollapsible
@@ -317,7 +348,6 @@ function WorkPhaseCollapsible({
             <ActivityRow
               key={`${activity.id}-${index}`}
               activity={activity}
-              isLive={isActive && index === phase.activities.length - 1}
             />
           ))}
         </div>
@@ -326,25 +356,13 @@ function WorkPhaseCollapsible({
   );
 }
 
-function ActivityRow({
-  activity,
-  isLive,
-}: {
-  activity: AgentActivity;
-  isLive: boolean;
-}) {
+function ActivityRow({ activity }: { activity: AgentActivity }) {
   return (
     <div className="flex items-center gap-2 py-0.5 text-xs text-foreground/90">
       <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-primary/10 bg-primary/5 text-primary">
         {renderActivityIcon(activity.kind, 12)}
       </span>
       <span className="min-w-0 truncate">{activityStepLabel(activity)}</span>
-      {isLive && (
-        <span className="shrink-0 inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
-          <span className="h-1 w-1 rounded-full bg-primary" />
-          Live
-        </span>
-      )}
     </div>
   );
 }
